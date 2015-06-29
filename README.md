@@ -5,7 +5,7 @@
 个人学习版本，如有不足还请指正！
 
 ##参考：#
-+<http://tengine.taobao.org/book/>
-+<http://simohayha.iteye.com/blog/467940>
-
+<http://tengine.taobao.org/book/><br/>
+<http://simohayha.iteye.com/blog/467940><br/>
+<br/>
 +Documentation is available at <http://nginx.org>
