@@ -12,13 +12,20 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+/*
+ * ngx_str_t Nginx字符串类型，该类型有len和*data两部分，
+ * 其中len表示字符串长度，*data表示字符串地址。由于*data中
+ * 不是以\0判断字符串结尾(即二进制字符串),所以不能用strlen
+ * 判断字符串长度。
+*/
 typedef struct {
     size_t      len;
     u_char     *data;
 } ngx_str_t;
 
-
+/*
+ * ngx_keyval_t 键值对类型
+*/
 typedef struct {
     ngx_str_t   key;
     ngx_str_t   value;

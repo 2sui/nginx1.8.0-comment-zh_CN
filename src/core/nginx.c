@@ -197,7 +197,9 @@ static char        *ngx_signal;
 
 static char **ngx_os_environ;
 
-
+/*
+ * 主函数
+*/
 int ngx_cdecl
 main(int argc, char *const *argv)
 {
@@ -208,14 +210,17 @@ main(int argc, char *const *argv)
 
     ngx_debug_init();
 
+    /* 初始化 ngx_sys_errlist */
     if (ngx_strerror_init() != NGX_OK) {
         return 1;
     }
 
+    /* 获取参数，并设置对应的参数变量 */
     if (ngx_get_options(argc, argv) != NGX_OK) {
         return 1;
     }
 
+    /* 根据上一步设置的对应的参数变量进行相应的操作 */
     if (ngx_show_version) {
         ngx_write_stderr("nginx version: " NGINX_VER_BUILD NGX_LINEFEED);
 
@@ -281,14 +286,19 @@ main(int argc, char *const *argv)
 
     /* TODO */ ngx_max_sockets = -1;
 
+    /*
+     * 初始化各种系统时间,这里把ngx_cached_time指向cached_time[0],
+     * 即第一个时间槽,然后调用ngx_time_update()更新时间槽
+    */
     ngx_time_init();
 
 #if (NGX_PCRE)
     ngx_regex_init();
 #endif
-
+    /* 获取master进程id */
     ngx_pid = ngx_getpid();
 
+    /* 初始化一个日志，这里是临时日志，如果有ngx_prefix前缀则日志创建在该前缀路径中 */
     log = ngx_log_init(ngx_prefix);
     if (log == NULL) {
         return 1;
@@ -296,7 +306,7 @@ main(int argc, char *const *argv)
 
     /* STUB */
 #if (NGX_OPENSSL)
-    ngx_ssl_init(log);
+    ngx_ssl_init(log);/* 如果启用ssl则初始化ssl库 */
 #endif
 
     /*
@@ -305,9 +315,10 @@ main(int argc, char *const *argv)
      */
 
     ngx_memzero(&init_cycle, sizeof(ngx_cycle_t));
-    init_cycle.log = log;
-    ngx_cycle = &init_cycle;
+    init_cycle.log = log; /* 把临时打开的日志赋给init_cycle */
+    ngx_cycle = &init_cycle; /* 主ngx_cycle指向init_cycle */
 
+    /* 初始化init_cycle的pool内存池，大小为1024（这里只有ngx_pool_t.d被分配了空间） */
     init_cycle.pool = ngx_create_pool(1024, log);
     if (init_cycle.pool == NULL) {
         return 1;
@@ -675,7 +686,9 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
     return pid;
 }
 
-
+/*
+ * 解析并获取系统参数，填充对应的选项参数
+*/
 static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
 {

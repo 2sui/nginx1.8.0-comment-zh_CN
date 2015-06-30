@@ -73,7 +73,9 @@ ngx_time_init(void)
     ngx_time_update();
 }
 
-
+/*
+ * 更新时间槽
+ */
 void
 ngx_time_update(void)
 {
@@ -84,6 +86,7 @@ ngx_time_update(void)
     ngx_time_t      *tp;
     struct timeval   tv;
 
+    /* 更新前加锁 */
     if (!ngx_trylock(&ngx_time_lock)) {
         return;
     }
@@ -91,32 +94,35 @@ ngx_time_update(void)
     ngx_gettimeofday(&tv);
 
     sec = tv.tv_sec;
-    msec = tv.tv_usec / 1000;
+    msec = tv.tv_usec / 1000; /* 把微秒转为毫秒 */
 
-    ngx_current_msec = (ngx_msec_t) sec * 1000 + msec;
+    ngx_current_msec = (ngx_msec_t) sec * 1000 + msec; /* 把当前时间转为毫秒 */
 
     tp = &cached_time[slot];
 
+    /* 如果两次更新时间在同一秒，则只更新毫秒并返回,不更新其他相关时间，否则时间槽偏移+1(使用下一个时间槽) */
     if (tp->sec == sec) {
         tp->msec = msec;
         ngx_unlock(&ngx_time_lock);
         return;
     }
 
+    /* 槽偏移 */
     if (slot == NGX_TIME_SLOTS - 1) {
         slot = 0;
     } else {
         slot++;
     }
 
+    /* 给新时间槽赋值 */
     tp = &cached_time[slot];
 
     tp->sec = sec;
     tp->msec = msec;
 
-    ngx_gmtime(sec, &gmt);
+    ngx_gmtime(sec, &gmt); /* 转换unix时间 */
 
-
+    /* 把时间转为http格式的时间字符串,p0就设置为诸如“Fri, 27 Jul 2012 01:09:17 GMT” */
     p0 = &cached_http_time[slot][0];
 
     (void) ngx_sprintf(p0, "%s, %02d %s %4d %02d:%02d:%02d GMT",
@@ -125,7 +131,7 @@ ngx_time_update(void)
                        gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec);
 
 #if (NGX_HAVE_GETTIMEZONE)
-
+    /* 这里是获取时区，unix和windows也是分开走的，这里的tm是进行时区修改后的值 */
     tp->gmtoff = ngx_gettimezone();
     ngx_gmtime(sec + tp->gmtoff * 60, &tm);
 
@@ -143,15 +149,15 @@ ngx_time_update(void)
 
 #endif
 
-
-    p1 = &cached_err_log_time[slot][0];
+    /* p1存诸如“2012/07/27 09:09:17” */
+    p1 = & cached_err_log_time[slot][0];
 
     (void) ngx_sprintf(p1, "%4d/%02d/%02d %02d:%02d:%02d",
                        tm.ngx_tm_year, tm.ngx_tm_mon,
                        tm.ngx_tm_mday, tm.ngx_tm_hour,
                        tm.ngx_tm_min, tm.ngx_tm_sec);
 
-
+    /* p2存储诸如“27/Jul/2012:09:09:17 +0800” */
     p2 = &cached_http_log_time[slot][0];
 
     (void) ngx_sprintf(p2, "%02d/%s/%d:%02d:%02d:%02d %c%02d%02d",
@@ -160,7 +166,7 @@ ngx_time_update(void)
                        tm.ngx_tm_min, tm.ngx_tm_sec,
                        tp->gmtoff < 0 ? '-' : '+',
                        ngx_abs(tp->gmtoff / 60), ngx_abs(tp->gmtoff % 60));
-
+    /* P3存储诸如“2012-07-27T09:09:17+08:00” */
     p3 = &cached_http_log_iso8601[slot][0];
 
     (void) ngx_sprintf(p3, "%4d-%02d-%02dT%02d:%02d:%02d%c%02d:%02d",
@@ -176,8 +182,10 @@ ngx_time_update(void)
                        months[tm.ngx_tm_mon - 1], tm.ngx_tm_mday,
                        tm.ngx_tm_hour, tm.ngx_tm_min, tm.ngx_tm_sec);
 
+    /* 内存屏障 */
     ngx_memory_barrier();
 
+    /* 更新相关时间 */
     ngx_cached_time = tp;
     ngx_cached_http_time.data = p0;
     ngx_cached_err_log_time.data = p1;
@@ -240,6 +248,7 @@ ngx_time_sigsafe_update(void)
                        months[tm.ngx_tm_mon - 1], tm.ngx_tm_mday,
                        tm.ngx_tm_hour, tm.ngx_tm_min, tm.ngx_tm_sec);
 
+    /* 内存屏障 */
     ngx_memory_barrier();
 
     ngx_cached_err_log_time.data = p;

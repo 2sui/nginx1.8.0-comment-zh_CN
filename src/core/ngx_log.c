@@ -321,9 +321,9 @@ ngx_log_init(u_char *prefix)
     size_t   nlen, plen;
 
     ngx_log.file = &ngx_log_file;
-    ngx_log.log_level = NGX_LOG_NOTICE;
+    ngx_log.log_level = NGX_LOG_NOTICE; /* 日志级别 */
 
-    name = (u_char *) NGX_ERROR_LOG_PATH;
+    name = (u_char *) NGX_ERROR_LOG_PATH; /* 日志路径 */
 
     /*
      * we use ngx_strlen() here since BCC warns about
@@ -332,6 +332,7 @@ ngx_log_init(u_char *prefix)
 
     nlen = ngx_strlen(name);
 
+    /* 如果路径命为空，则使用标准出错,输出至屏幕 */
     if (nlen == 0) {
         ngx_log_file.fd = ngx_stderr;
         return &ngx_log;
@@ -345,6 +346,10 @@ ngx_log_init(u_char *prefix)
     if (name[0] != '/') {
 #endif
 
+        /*
+         * 判断是否有前缀，有则添加至日志路径前（即指定路径或绝对路径），没有
+         * 就在当前目录下
+        */
         if (prefix) {
             plen = ngx_strlen(prefix);
 

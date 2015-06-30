@@ -41,7 +41,9 @@ ngx_strerror(ngx_err_t err, u_char *errstr, size_t size)
     return ngx_cpymem(errstr, msg->data, size);
 }
 
-
+/*
+ * 初始化 ngx_sys_errlist
+*/
 ngx_int_t
 ngx_strerror_init(void)
 {
@@ -55,6 +57,9 @@ ngx_strerror_init(void)
      * malloc() is used and possible errors are logged using strerror().
      */
 
+    /*
+     * 根据有多少种错误代码分配字符串类型空间
+    */
     len = NGX_SYS_NERR * sizeof(ngx_str_t);
 
     ngx_sys_errlist = malloc(len);
@@ -63,7 +68,7 @@ ngx_strerror_init(void)
     }
 
     for (err = 0; err < NGX_SYS_NERR; err++) {
-        msg = strerror(err);
+        msg = strerror(err); /* 把错误代码转为对应的字符串 */
         len = ngx_strlen(msg);
 
         p = malloc(len);
@@ -71,6 +76,10 @@ ngx_strerror_init(void)
             goto failed;
         }
 
+        /*
+         * 把转换后的错误代码和对应字符串存在ngx_sys_errlist中，这样可以直接通过
+         * ngx_sys_errlist找到对应的错误代码的含义
+        */
         ngx_memcpy(p, msg, len);
         ngx_sys_errlist[err].len = len;
         ngx_sys_errlist[err].data = p;
