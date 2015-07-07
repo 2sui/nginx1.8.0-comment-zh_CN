@@ -16,7 +16,9 @@ static ngx_atomic_t   temp_number = 0;
 ngx_atomic_t         *ngx_temp_number = &temp_number;
 ngx_atomic_int_t      ngx_random_number = 123456;
 
-
+/*
+ * 将prefix与name拼接起来
+*/
 ngx_int_t
 ngx_get_full_name(ngx_pool_t *pool, ngx_str_t *prefix, ngx_str_t *name)
 {
@@ -45,7 +47,9 @@ ngx_get_full_name(ngx_pool_t *pool, ngx_str_t *prefix, ngx_str_t *name)
         return NGX_ERROR;
     }
 
-    p = ngx_cpymem(n, prefix->data, len);
+    p = ngx_cpymem(n, prefix->data, len); /* (((u_char *) memcpy(dst, src, n)) + (n))返回
+                                           * 地址为dst+n
+                                           */
     ngx_cpystrn(p, name->data, name->len + 1);
 
     name->len += len;
@@ -54,7 +58,9 @@ ngx_get_full_name(ngx_pool_t *pool, ngx_str_t *prefix, ngx_str_t *name)
     return NGX_OK;
 }
 
-
+/*
+ * 判断是否为绝对路径
+*/
 static ngx_int_t
 ngx_test_full_name(ngx_str_t *name)
 {

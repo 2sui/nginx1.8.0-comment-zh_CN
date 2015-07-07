@@ -805,8 +805,10 @@ ngx_conf_full_name(ngx_cycle_t *cycle, ngx_str_t *name, ngx_uint_t conf_prefix)
 {
     ngx_str_t  *prefix;
 
+    /* 获取正确的配置文件路径前缀（即不为空的） */
     prefix = conf_prefix ? &cycle->conf_prefix : &cycle->prefix;
 
+    /* 将前缀和文件名拼接后返回（取得绝对路径） */
     return ngx_get_full_name(cycle->pool, prefix, name);
 }
 

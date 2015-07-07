@@ -28,7 +28,9 @@ ngx_strlow(u_char *dst, u_char *src, size_t n)
     }
 }
 
-
+/*
+ * 将src的n字节复制到dst中，dst以'\0'结束
+*/
 u_char *
 ngx_cpystrn(u_char *dst, u_char *src, size_t n)
 {

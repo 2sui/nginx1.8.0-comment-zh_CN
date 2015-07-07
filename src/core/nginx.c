@@ -324,10 +324,22 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    /*
+     * 将argc argv,environ解析后保存在ngx_argc,ngx_os_argv（原始argv指针）,
+     * ngx_argv（重新申请空间后将argv的值复制进ngx_argv）,ngx_os_environ中
+     */
     if (ngx_save_argv(&init_cycle, argc, argv) != NGX_OK) {
         return 1;
     }
 
+    /*
+     * 在init_cycle中保存:
+     *      1.ngx_prefix(init_cycle.conf_prefix,init_cycle.prefix)，如果ngx_prefix
+     *        为空，则为当前路径或NGX_PREFIX、NGX_CONF_PREFIX指定的路径
+     *      2.ngx_conf_file(init_cycle.conf_file),如果ngx_conf_file未定义则使用NGX_CONF_PATH
+     *      3.ngx_conf_params(init_cycle.conf_param)
+     *      4.ngx_test_config,设置日志等级
+    */
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -922,10 +934,12 @@ ngx_process_options(ngx_cycle_t *cycle)
         ngx_str_set(&cycle->conf_file, NGX_CONF_PATH);
     }
 
+    /* 获取配置文件绝对路径 */
     if (ngx_conf_full_name(cycle, &cycle->conf_file, 0) != NGX_OK) {
         return NGX_ERROR;
     }
 
+    /* 更新cycle.conf_prefix */
     for (p = cycle->conf_file.data + cycle->conf_file.len - 1;
          p > cycle->conf_file.data;
          p--)
