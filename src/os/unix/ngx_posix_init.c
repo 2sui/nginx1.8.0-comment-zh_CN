@@ -40,11 +40,14 @@ ngx_os_init(ngx_log_t *log)
     }
 #endif
 
+    /* 将argv的内存空间与environ分离， environ使用独立分配的内存 */
     if (ngx_init_setproctitle(log) != NGX_OK) {
         return NGX_ERROR;
     }
 
+    /* 获取页大小 */
     ngx_pagesize = getpagesize();
+    /* 获取cache-line大小 */
     ngx_cacheline_size = NGX_CPU_CACHE_LINE;
 
     for (n = ngx_pagesize; n >>= 1; ngx_pagesize_shift++) { /* void */ }
@@ -55,18 +58,21 @@ ngx_os_init(ngx_log_t *log)
     }
 #endif
 
+    /* cpu核心数 */
     if (ngx_ncpu < 1) {
         ngx_ncpu = 1;
     }
 
     ngx_cpuinfo();
 
+    /* 获取文件描述符数量限制 */
     if (getrlimit(RLIMIT_NOFILE, &rlmt) == -1) {
         ngx_log_error(NGX_LOG_ALERT, log, errno,
                       "getrlimit(RLIMIT_NOFILE) failed)");
         return NGX_ERROR;
     }
 
+    /* 设置最大socket数为最大描述符数 */
     ngx_max_sockets = (ngx_int_t) rlmt.rlim_cur;
 
 #if (NGX_HAVE_INHERITED_NONBLOCK || NGX_HAVE_ACCEPT4)
@@ -75,6 +81,7 @@ ngx_os_init(ngx_log_t *log)
     ngx_inherited_nonblocking = 0;
 #endif
 
+    /* 利用当前时间生成随机数种子 */
     srandom(ngx_time());
 
     return NGX_OK;

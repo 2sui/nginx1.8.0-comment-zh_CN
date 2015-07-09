@@ -98,6 +98,7 @@ typedef intptr_t        ngx_flag_t;
 #endif
 
 #define ngx_align(d, a)     (((d) + (a - 1)) & ~(a - 1))
+/* 对齐指针,将p + a, 后去掉p+a对a的模 */
 #define ngx_align_ptr(p, a)                                                   \
     (u_char *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
 

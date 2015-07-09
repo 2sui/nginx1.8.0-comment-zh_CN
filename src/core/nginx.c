@@ -338,12 +338,13 @@ main(int argc, char *const *argv)
      *        为空，则为当前路径或NGX_PREFIX、NGX_CONF_PREFIX指定的路径
      *      2.ngx_conf_file(init_cycle.conf_file),如果ngx_conf_file未定义则使用NGX_CONF_PATH
      *      3.ngx_conf_params(init_cycle.conf_param)
-     *      4.ngx_test_config,设置日志等级
+     *      4.ngx_test_config,设置日志等级（NGX_LOG_INFO）
     */
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
     }
 
+    /* 设置内存页、cache-line、cpu信息、最大socket数量等，并生成随机数种子*/
     if (ngx_os_init(log) != NGX_OK) {
         return 1;
     }
@@ -351,11 +352,12 @@ main(int argc, char *const *argv)
     /*
      * ngx_crc32_table_init() requires ngx_cacheline_size set in ngx_os_init()
      */
-
+    /* 这里会用到上一步设置的ngx_cacheline_size，初始化CRC表，减少计算以加快速度*/
     if (ngx_crc32_table_init() != NGX_OK) {
         return 1;
     }
 
+    /* 继承socket，继承来的socket房子init_cycle.listening数组中（用于平滑升级?） */
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }

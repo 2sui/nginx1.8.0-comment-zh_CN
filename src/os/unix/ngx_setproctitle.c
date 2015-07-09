@@ -31,6 +31,9 @@ extern char **environ;
 
 static char *ngx_os_argv_last;
 
+/*
+ * 分割程序名和参数
+*/
 ngx_int_t
 ngx_init_setproctitle(ngx_log_t *log)
 {
@@ -40,6 +43,7 @@ ngx_init_setproctitle(ngx_log_t *log)
 
     size = 0;
 
+    /* 获取环境变量长度 */
     for (i = 0; environ[i]; i++) {
         size += ngx_strlen(environ[i]) + 1;
     }
@@ -49,20 +53,27 @@ ngx_init_setproctitle(ngx_log_t *log)
         return NGX_ERROR;
     }
 
+    /* 指向第一个参数 */
     ngx_os_argv_last = ngx_os_argv[0];
 
+    /* 指向最后一个参数（的末尾地址），可以判断argv是否连续 */
     for (i = 0; ngx_os_argv[i]; i++) {
         if (ngx_os_argv_last == ngx_os_argv[i]) {
             ngx_os_argv_last = ngx_os_argv[i] + ngx_strlen(ngx_os_argv[i]) + 1;
         }
     }
 
+    /*
+     * 将环境变量复制进p中（p长度由之前计算,并分配空间），
+     * 可以判断environ是否在argv后，并且environ是否连续
+     */
     for (i = 0; environ[i]; i++) {
         if (ngx_os_argv_last == environ[i]) {
 
             size = ngx_strlen(environ[i]) + 1;
             ngx_os_argv_last = environ[i] + size;
 
+            /* 将系统environ指向p， p分配的内存这里没有释放，所以environ与argv的空间不再连续，即分离了 */
             ngx_cpystrn(p, (u_char *) environ[i], size);
             environ[i] = (char *) p;
             p += size;
