@@ -464,6 +464,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                   "using inherited sockets from \"%s\"", inherited);
 
+    /* 初始化cycle.listening数组 */
     if (ngx_array_init(&cycle->listening, cycle->pool, 10,
                        sizeof(ngx_listening_t))
         != NGX_OK)
@@ -497,6 +498,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
     ngx_inherited = 1;
 
+    /* 配置继承来的socket */
     return ngx_set_inherited_sockets(cycle);
 }
 

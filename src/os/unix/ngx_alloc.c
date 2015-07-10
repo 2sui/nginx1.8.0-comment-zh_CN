@@ -13,7 +13,7 @@ ngx_uint_t  ngx_pagesize;
 ngx_uint_t  ngx_pagesize_shift;
 ngx_uint_t  ngx_cacheline_size;
 
-
+/* 调用malloc，在32位系统返回地址对8字节对齐，64位返回地址对16字节对齐 */
 void *
 ngx_alloc(size_t size, ngx_log_t *log)
 {
@@ -30,7 +30,7 @@ ngx_alloc(size_t size, ngx_log_t *log)
     return p;
 }
 
-
+/* 调用malloc并复位 */
 void *
 ngx_calloc(size_t size, ngx_log_t *log)
 {
@@ -47,7 +47,10 @@ ngx_calloc(size_t size, ngx_log_t *log)
 
 
 #if (NGX_HAVE_POSIX_MEMALIGN)
-
+/*
+ * malloc只关于16字节（或8字节）对齐，如果要更大的对齐标准需要memalign或posix_memalign。
+ * (关于页对齐为vmalloc，内部实现为调用 memalign(getpagesize ()/*页大小*/, size/*要申请大小*/) )
+*/
 void *
 ngx_memalign(size_t alignment, size_t size, ngx_log_t *log)
 {

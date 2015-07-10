@@ -100,18 +100,33 @@ struct ngx_open_file_s {
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
 struct ngx_module_s {
+    /*
+     * 对于一类模块（由下面的type成员决定类别）而言，ctx_index表示当前模块在这类模块中的索引号。
+     * 这个成员常常是由管理这类模块的一个nginx核心模块设置的，对于所有的HTTP模块而言，ctx_index
+     * 是由核心模块ngx_http_module设置的。
+     */
     ngx_uint_t            ctx_index;
+    /* 表示这一类模块在各类模块中的索引号 */
     ngx_uint_t            index;
 
     ngx_uint_t            spare0;
     ngx_uint_t            spare1;
     ngx_uint_t            spare2;
     ngx_uint_t            spare3;
-
+    /* 模块版本 */
     ngx_uint_t            version;
 
+    /*
+     * 模块上下文，每个模块有不同模块上下文,每个模块都有自己的特性，而ctx会指向特定类型模块的公共接口。
+     * 比如，在HTTP模块中，ctx需要指向ngx_http_module_t结构体。
+     */
     void                 *ctx;
+    /* 模块命令集，将处理nginx.conf中的配置项 */
     ngx_command_t        *commands;
+    /* 标示该模块的类型，和ctx是紧密相关的。它的取值范围是以下几种:
+     * NGX_HTTP_MODULE,NGX_CORE_MODULE,NGX_CONF_MODULE,
+     * NGX_EVENT_MODULE,NGX_MAIL_MODULE
+     */
     ngx_uint_t            type;
 
     ngx_int_t           (*init_master)(ngx_log_t *log);

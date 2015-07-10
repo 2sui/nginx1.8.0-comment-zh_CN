@@ -35,9 +35,31 @@ struct ngx_shm_zone_s {
 
 
 struct ngx_cycle_s {
+    /*
+     保存着所有模块存储配置项的结构体指针，
+     它首先是一个数组，数组大小为ngx_max_module，正好与Nginx的module个数一样；
+     每个数组成员又是一个指针，指向另一个存储着指针的数组，因此会看到void ****
+
+    请见陶辉所著《深入理解Nginx-模块开发与架构解析》一书302页插图。
+    另外，这个图也不错：http://img.my.csdn.net/uploads/201202/9/0_1328799724GTUk.gif
+
+    解引用后：
+        *(
+          *(
+            *(
+              *conf_ctx // 具体配置
+             )//指向具体模块中的具体配置项的指针
+           )//指向某类模块的数组指针，每个元素指向这类模块里一个具体模块
+          )//指向所有配置模块(指针数组)的指针,每个元素指向一类模块
+    */
     void                  ****conf_ctx;
+    /* 内存池 */
     ngx_pool_t               *pool;
 
+    /*
+     * 日志模块中提供了生成基本ngx_log_t日志对象的功能，这里的log实际上是在还没有执行ngx_init_cycle方法前，
+     * 在ngx_init_cycle方法执行后，将会根据nginx.conf配置文件中的配置项，构造出正确的日志文件，此时会对log重新赋值。
+    */
     ngx_log_t                *log;
     ngx_log_t                 new_log;
 
@@ -49,6 +71,7 @@ struct ngx_cycle_s {
 
     ngx_queue_t               reusable_connections_queue;
 
+    /* 动态数组，每个数组元素储存着ngx_listening_t成员，表示监听端口及相关的参数 */
     ngx_array_t               listening;
     ngx_array_t               paths;
     ngx_list_t                open_files;

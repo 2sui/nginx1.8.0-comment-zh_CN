@@ -109,12 +109,13 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
-
+        /* 分配套接字地址的空间 */
         ls[i].sockaddr = ngx_palloc(cycle->pool, NGX_SOCKADDRLEN);
         if (ls[i].sockaddr == NULL) {
             return NGX_ERROR;
         }
 
+        /* 获取sockname失败则忽略该套接字 */
         ls[i].socklen = NGX_SOCKADDRLEN;
         if (getsockname(ls[i].fd, ls[i].sockaddr, &ls[i].socklen) == -1) {
             ngx_log_error(NGX_LOG_CRIT, cycle->log, ngx_socket_errno,
@@ -123,7 +124,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
             ls[i].ignore = 1;
             continue;
         }
-
+        /* 字符串地址长度 */
         switch (ls[i].sockaddr->sa_family) {
 
 #if (NGX_HAVE_INET6)
@@ -158,6 +159,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
             return NGX_ERROR;
         }
 
+        /* 转换字符串地址 */
         len = ngx_sock_ntop(ls[i].sockaddr, ls[i].socklen,
                             ls[i].addr_text.data, len, 1);
         if (len == 0) {
@@ -170,6 +172,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         olen = sizeof(int);
 
+        /* 指定内核recvbuf和sendbuf大小 */
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_RCVBUF, (void *) &ls[i].rcvbuf,
                        &olen)
             == -1)

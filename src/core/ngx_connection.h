@@ -1,4 +1,4 @@
-
+D
 /*
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
@@ -16,18 +16,18 @@
 typedef struct ngx_listening_s  ngx_listening_t;
 
 struct ngx_listening_s {
-    ngx_socket_t        fd;
+    ngx_socket_t        fd; /* 监听socket套接字句柄 */
 
-    struct sockaddr    *sockaddr;
+    struct sockaddr    *sockaddr; /* 监听套接字地址 */
     socklen_t           socklen;    /* size of sockaddr */
-    size_t              addr_text_max_len;
-    ngx_str_t           addr_text;
+    size_t              addr_text_max_len; /* 存储ip字符串地址addr_text的最大长度 */
+    ngx_str_t           addr_text; /* ip字符串地址 */
 
-    int                 type;
+    int                 type; /* 类型SOCK_STRAM等 */
 
-    int                 backlog;
-    int                 rcvbuf;
-    int                 sndbuf;
+    int                 backlog;  /* tcp监听backlog队列(SYN_RECVD, ESTABLISHED) */
+    int                 rcvbuf; /* 接收缓冲大小 */
+    int                 sndbuf; /* 发送缓冲大小 */
 #if (NGX_HAVE_KEEPALIVE_TUNABLE)
     int                 keepidle;
     int                 keepintvl;
@@ -35,37 +35,71 @@ struct ngx_listening_s {
 #endif
 
     /* handler of accepted connection */
+    /* 接受连接后的回掉函数 */
     ngx_connection_handler_pt   handler;
 
+    /*
+     * 实际上框架并不适用servers 指针，它更多是作为一个保留指针，
+     * 目前主要用于HTTP或者mail等模块，用户保存当前监听端口对应着的所有主机名
+    */
     void               *servers;  /* array of ngx_http_in_addr_t, for example */
 
+    /* 日志对象指针 */
     ngx_log_t           log;
     ngx_log_t          *logp;
 
+    /* 新tcp连接创建大小为pool_size的内存池 */
     size_t              pool_size;
     /* should be here because of the AcceptEx() preread */
     size_t              post_accept_buffer_size;
     /* should be here because of the deferred accept */
+    /*
+     * TCP_DEFER_ACCEPT 选项将在建立TCP连接成功且接收到用户的请求数据后，才向对监听套接字感兴趣的进程发送事件通知，而连接建立成功后，
+     * 如果post_accept_timeout 秒后仍然没有收到的用户数据，则内核直接丢弃连接
+     */
     ngx_msec_t          post_accept_timeout;
 
+    /* ngx_listening_t链表中前一个listening结构 */
     ngx_listening_t    *previous;
+    /* 当前ngx_listening_t 对应的ngx_connection_t结构 */
     ngx_connection_t   *connection;
 
+    /*
+     * 标志位，为1则表示在当前监听句柄有效，且执行ngx_init_cycle时不关闭监听端口，为0时则正常关闭。
+     * 该标志位框架代码会自动设置。
+     */
     unsigned            open:1;
+    /*
+     * 标志位，为1表示使用已经有的ngx_cycle_t来初始化新的ngx_cycle_t结构体时，不关闭原先打开的监听端口，
+     * 这对运行中升级程序很有用，remain为0时，表示正常关闭曾经打开的监听端口。
+     * 该标志位框架代码会自动设置，参见ngx_init_cycle方法。
+     */
     unsigned            remain:1;
+    /*
+     * 标志位，为1表示跳过设置当前ngx_listening_t结构体中的套接字，为0时正常初始化套接字，该标志位框架代码会自动设置
+    */
     unsigned            ignore:1;
 
+    /* bind状态，是否已绑定 */
     unsigned            bound:1;       /* already bound */
+    /* 如果为1， 则表示来自前一个进程，一般会保留之前已经设置好的套接字，不做改变 */
     unsigned            inherited:1;   /* inherited from previous process */
+    /* 非阻塞accept */
     unsigned            nonblocking_accept:1;
+    /* 监听状态，是否已监听 */
     unsigned            listen:1;
+    /* 是否非阻塞 */
     unsigned            nonblocking:1;
+    /* 是否共享该套接字 */
     unsigned            shared:1;    /* shared between threads or processes */
+    /* 是否转换字符串地址 */
     unsigned            addr_ntop:1;
 
 #if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
+    /* ipv6 */
     unsigned            ipv6only:1;
 #endif
+    /* 长连接 */
     unsigned            keepalive:2;
 
 #if (NGX_HAVE_DEFERRED_ACCEPT)
