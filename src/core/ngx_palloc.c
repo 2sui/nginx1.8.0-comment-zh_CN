@@ -172,6 +172,9 @@ ngx_palloc(ngx_pool_t *pool, size_t size)
 }
 
 
+/*
+ * 申请size大小内存，非对齐
+*/
 void *
 ngx_pnalloc(ngx_pool_t *pool, size_t size)
 {
