@@ -30,38 +30,38 @@
 typedef void (*ngx_pool_cleanup_pt)(void *data);
 
 typedef struct ngx_pool_cleanup_s  ngx_pool_cleanup_t;
-
+/* 资源释放结构 */
 struct ngx_pool_cleanup_s {
-    ngx_pool_cleanup_pt   handler;
-    void                 *data;
-    ngx_pool_cleanup_t   *next;
+    ngx_pool_cleanup_pt   handler; /* 回调函数指针 */
+    void                 *data;   /* 传入回调函数的参数 */
+    ngx_pool_cleanup_t   *next; /* 下一个资源释放结构 */
 };
 
 
 typedef struct ngx_pool_large_s  ngx_pool_large_t;
-
+/* 大数据块 */
 struct ngx_pool_large_s {
-    ngx_pool_large_t     *next;
-    void                 *alloc;
+    ngx_pool_large_t     *next; /* 下一个大数据块 */
+    void                 *alloc; /* 大数据块存储内存地址 */
 };
 
-
+/* 小数据块 */
 typedef struct {
-    u_char               *last;
-    u_char               *end;
-    ngx_pool_t           *next;
-    ngx_uint_t            failed;
+    u_char               *last;  /* 当前数据块中未使用内存的其实位置 */
+    u_char               *end;  /* 当前数据块结束位置 */
+    ngx_pool_t           *next; /* 下个内存池 */
+    ngx_uint_t            failed; /* 当前数据块分配请求失败次数 */
 } ngx_pool_data_t;
 
-
+/* 内存池 */
 struct ngx_pool_s {
-    ngx_pool_data_t       d;
-    size_t                max;
-    ngx_pool_t           *current;
-    ngx_chain_t          *chain;
-    ngx_pool_large_t     *large;
-    ngx_pool_cleanup_t   *cleanup;
-    ngx_log_t            *log;
+    ngx_pool_data_t       d;  /* 小数据块 */
+    size_t                max;  /* 小数据块最大值,当要申请的内存大于max时， */
+    ngx_pool_t           *current;  /* 当前内存池指针 */
+    ngx_chain_t          *chain; /* 链表 */
+    ngx_pool_large_t     *large; /* 大数据快 */
+    ngx_pool_cleanup_t   *cleanup; /* 内存池资源释放结构 */
+    ngx_log_t            *log; /* 日志 */
 };
 
 

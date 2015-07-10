@@ -46,6 +46,7 @@ ngx_os_init(ngx_log_t *log)
     }
 
     /* 获取页大小 */
+    /* 该函数为glibc的库函数，由系统调用实现，返回内核中的PAGE_SIZE，该值依赖体系结构*/
     ngx_pagesize = getpagesize();
     /* 获取cache-line大小 */
     ngx_cacheline_size = NGX_CPU_CACHE_LINE;

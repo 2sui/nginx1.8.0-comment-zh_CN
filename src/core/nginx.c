@@ -362,6 +362,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    /* 计算module个数并为每个module设置索引值 */
     ngx_max_module = 0;
     for (i = 0; ngx_modules[i]; i++) {
         ngx_modules[i]->index = ngx_max_module++;
