@@ -107,6 +107,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
     int                        timeout;
 #endif
 
+    /*  遍历listening数组 */
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
         /* 分配套接字地址的空间 */
@@ -124,7 +125,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
             ls[i].ignore = 1;
             continue;
         }
-        /* 字符串地址长度 */
+        /* 获取socketname字符串地址长度 */
         switch (ls[i].sockaddr->sa_family) {
 
 #if (NGX_HAVE_INET6)
@@ -154,6 +155,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
             continue;
         }
 
+        /* 根据之前获取的长度分配字符串地址的空间 */
         ls[i].addr_text.data = ngx_pnalloc(cycle->pool, len);
         if (ls[i].addr_text.data == NULL) {
             return NGX_ERROR;
@@ -168,7 +170,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         ls[i].addr_text.len = len;
 
-        ls[i].backlog = NGX_LISTEN_BACKLOG;
+        ls[i].backlog = NGX_LISTEN_BACKLOG; /* 设置backlog */
 
         olen = sizeof(int);
 
@@ -239,6 +241,16 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
 #endif
 
+
+
+        /*
+         * 当支持accept filter时，通过SO_ACCEPTFILTER选项取得socket的accept_filter表
+         * 保存在对应项的accept_filter中；
+         *
+         * SO_ACCEPTFILTER 是socket上的输入过滤，他在接手前
+         * 将过滤掉传入流套接字的链接，功能是服务器不等待
+         * 最后的ACK包而仅仅等待携带数据负载的包。（所以accept只在新连接有数据的时候返回？）
+         */
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined SO_ACCEPTFILTER)
 
         ngx_memzero(&af, sizeof(struct accept_filter_arg));
@@ -272,6 +284,10 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
                            (u_char *) af.af_name, 16);
 #endif
 
+        /*
+         * 该选项命令内核不等待最后的ACK包而且在第1个真正有数据的包到达才初始化侦听进程,以减小tcp三次握手中
+         * 第三次握手（ack）不带负载所造成的浪费。所以这里accept只在有数据的新连接到达时返回。
+         */
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined TCP_DEFER_ACCEPT)
 
         timeout = 0;

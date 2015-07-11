@@ -30,7 +30,9 @@ ngx_array_create(ngx_pool_t *p, ngx_uint_t n, size_t size)
 
 
 /*
- * 只有当数组元素在内存池末尾才会被回收
+ * 只有当数组元素在内存池末尾才会被回收.
+ * 所以对于不在内存池末尾的数组，被destory后，下次对同一个数组结构体做
+ * ngx_array_init操作则这个数组结构提就又能用了（跳过向内存池申请的过程）。
 */
 void
 ngx_array_destroy(ngx_array_t *a)
@@ -39,7 +41,7 @@ ngx_array_destroy(ngx_array_t *a)
 
     p = a->pool;
 
-    /* 如果是内存池中最后一个元素则内存池p.d.last减去数组大小 */
+    /* 如果是内存池中最后一个元素则内存池p.d.last减去数组数据部分大小 */
     if ((u_char *) a->elts + a->size * a->nalloc == p->d.last) {
         p->d.last -= a->size * a->nalloc;
     }
@@ -50,7 +52,9 @@ ngx_array_destroy(ngx_array_t *a)
     }
 }
 
-
+/*
+ * 从内存池中取出没有被使用的空间
+*/
 void *
 ngx_array_push(ngx_array_t *a)
 {
@@ -102,6 +106,9 @@ ngx_array_push(ngx_array_t *a)
 }
 
 
+/*
+ * 从内存池中取出没有被使用的n个空间
+*/
 void *
 ngx_array_push_n(ngx_array_t *a, ngx_uint_t n)
 {

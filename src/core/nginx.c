@@ -456,6 +456,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     ngx_int_t         s;
     ngx_listening_t  *ls;
 
+    /* 获取环境变量 这里的"NGINX_VAR"是宏定义，值为"NGINX" */
     inherited = (u_char *) getenv(NGINX_VAR);
 
     if (inherited == NULL) {
@@ -473,8 +474,10 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    /* 遍历环境变量 */
     for (p = inherited, v = p; *p; p++) {
         if (*p == ':' || *p == ';') {
+            /* 转换socket */
             s = ngx_atoi(v, p - v);
             if (s == NGX_ERROR) {
                 ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
@@ -486,6 +489,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
             v = p + 1;
 
+            /* 从数组中取出一个可用元素 */
             ls = ngx_array_push(&cycle->listening);
             if (ls == NULL) {
                 return NGX_ERROR;
@@ -497,6 +501,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
         }
     }
 
+    /* 表示已经的得到要继承的socket */
     ngx_inherited = 1;
 
     /* 配置继承来的socket */
