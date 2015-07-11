@@ -178,7 +178,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     /*
      * 创建监听数组，如果old_cycle上有监听数组则继承过来（由main()中继承socket得到）
-     * 否则创建10个。
+     * 否则创建10个。这里只根据继承来的socket数量初始化了listening数组空间，但没有
+     * 将继承来的socket数据复制过来。
     */
     n = old_cycle->listening.nelts ? old_cycle->listening.nelts : 10;
 
