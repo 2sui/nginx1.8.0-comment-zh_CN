@@ -368,6 +368,7 @@ main(int argc, char *const *argv)
         ngx_modules[i]->index = ngx_max_module++;
     }
 
+    /* 初始化ngx_cycle_t并继承旧的ngx_cycle_t */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
         if (ngx_test_config) {

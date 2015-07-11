@@ -17,6 +17,7 @@ static void *ngx_palloc_large(ngx_pool_t *pool, size_t size);
  * 内存池中各结构体关系如图(img/ngx_pool_t.png,截取自(http://tengine.taobao.org/)).
  * 传入的size至少要大于sizeof(ngx_pool_t),因为申请的空间中前sizeof(ngx_pool_t)用于
  * 存放ngx_pool_t结构，且剩余空间大小还需小于NGX_MAX_ALLOC_FROM_POOL.
+ * log会被关联进这个内存池
  */
 ngx_pool_t *
 ngx_create_pool(size_t size, ngx_log_t *log)

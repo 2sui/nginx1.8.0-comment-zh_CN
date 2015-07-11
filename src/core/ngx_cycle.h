@@ -68,7 +68,7 @@ struct ngx_cycle_s {
     ngx_connection_t        **files;
     ngx_connection_t         *free_connections;
     ngx_uint_t                free_connection_n;
-
+    /* 双向链表，元素是ngx_connection_t结构，表示可重复使用连接队列 */
     ngx_queue_t               reusable_connections_queue;
 
     /* 动态数组，每个数组元素储存着ngx_listening_t成员，表示监听端口及相关的参数 */
@@ -84,6 +84,13 @@ struct ngx_cycle_s {
     ngx_event_t              *read_events;
     ngx_event_t              *write_events;
 
+    /*
+     * 继承来的ngx_cycle_t。
+     *
+     * 旧的ngx_cycle_t 对象用于引用上一个ngx_cycle_t 对象中的成员。例如ngx_init_cycle 方法，在启动初期，
+     * 需要建立一个临时的ngx_cycle_t对象保存一些变量，再调用ngx_init_cycle 方法时就可以把旧的ngx_cycle_t 对象传进去，
+     * 而这时old_cycle对象就会保存这个前期的ngx_cycle_t对象。
+     */
     ngx_cycle_t              *old_cycle;
 
     ngx_str_t                 conf_file;

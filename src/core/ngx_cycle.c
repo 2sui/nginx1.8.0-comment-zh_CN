@@ -55,29 +55,34 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_core_module_t   *module;
     char                 hostname[NGX_MAXHOSTNAMELEN];
 
+    /* 更新时区 */
     ngx_timezone_update();
 
     /* force localtime update with a new timezone */
 
-    tp = ngx_timeofday();
+    tp = ngx_timeofday(); /* ngx_cache_time */
     tp->sec = 0;
 
-    ngx_time_update();
+    ngx_time_update(); /* 更新time */
 
 
     log = old_cycle->log;
 
+    /* 创建16k的内存池 */
     pool = ngx_create_pool(NGX_CYCLE_POOL_SIZE, log);
     if (pool == NULL) {
         return NULL;
     }
     pool->log = log;
 
+    /* 从创建的内存池中申请ngx_cycle_t */
     cycle = ngx_pcalloc(pool, sizeof(ngx_cycle_t));
     if (cycle == NULL) {
         ngx_destroy_pool(pool);
         return NULL;
     }
+
+    /* 下面几步开始继承old_cycle中的内容 */
 
     cycle->pool = pool;
     cycle->log = log;
@@ -113,7 +118,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-
+    /* 文件路径分配空间并初始化 ，如果old_cycle默认没有指定，则大小为10 */
     n = old_cycle->paths.nelts ? old_cycle->paths.nelts : 10;
 
     cycle->paths.elts = ngx_pcalloc(pool, n * sizeof(ngx_path_t *));
@@ -127,7 +132,10 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     cycle->paths.nalloc = n;
     cycle->paths.pool = pool;
 
-
+    /*
+     * 每个打开的文件都会放到cycle中的open_files中。每个共享内存段都会放到shared_memory链表中
+     * 如果原来结构中有文件，那么直接统计原来打开的文件，否则默认20
+     */
     if (old_cycle->open_files.part.nelts) {
         n = old_cycle->open_files.part.nelts;
         for (part = old_cycle->open_files.part.next; part; part = part->next) {
@@ -138,6 +146,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         n = 20;
     }
 
+    /* 初始化open_files的list */
     if (ngx_list_init(&cycle->open_files, pool, n, sizeof(ngx_open_file_t))
         != NGX_OK)
     {
@@ -145,7 +154,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-
+    /*
+     * 如果原来结构中共享内存，那么直接统计原来共享内存数，否则默认1
+     */
     if (old_cycle->shared_memory.part.nelts) {
         n = old_cycle->shared_memory.part.nelts;
         for (part = old_cycle->shared_memory.part.next; part; part = part->next)
@@ -157,6 +168,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         n = 1;
     }
 
+    /* 初始化shared_memory的list */
     if (ngx_list_init(&cycle->shared_memory, pool, n, sizeof(ngx_shm_zone_t))
         != NGX_OK)
     {
@@ -164,6 +176,10 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
+    /*
+     * 创建监听数组，如果old_cycle上有监听数组则继承过来（由main()中继承socket得到）
+     * 否则创建10个。
+    */
     n = old_cycle->listening.nelts ? old_cycle->listening.nelts : 10;
 
     cycle->listening.elts = ngx_pcalloc(pool, n * sizeof(ngx_listening_t));
@@ -177,7 +193,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     cycle->listening.nalloc = n;
     cycle->listening.pool = pool;
 
-
+    /* 初始化双向链表 */
     ngx_queue_init(&cycle->reusable_connections_queue);
 
 
