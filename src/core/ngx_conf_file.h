@@ -95,8 +95,32 @@ struct ngx_open_file_s {
     void                 *data;
 };
 
-
+/*
+ * 初始化ngx_module_t的前7个字段（ctx_index,index,spare0~spare3,version）
+ * 如：
+ *  ngx_core_module，
+ *  ngx_conf_module,
+ *  ngx_errlog_module,
+ *  ngx_regex_module，
+ *  ngx_thread_pool_module，
+ *  ngx_aio_module，
+ *  ngx_devpoll_module，
+ *  ngx_epoll_module，
+ *  ngx_eventport_module，
+ *  ngx_kqueue_module，
+ *  ngx_poll_module，
+ *  ngx_rtsig_module，
+ *  ngx_select_module，
+ *  ngx_events_module，
+ *  ngx_event_core_module，
+ *  ngx_openssl_module，
+ *  ngx_http_access_module，
+ *  ngx_http_addition_filter_module，
+ *  ngx_http_auth_basic_module，
+ *  ......
+ */
 #define NGX_MODULE_V1          0, 0, 0, 0, 0, 0, 1
+/* 初始化ngx_module_t的最后8个字段（spare_hook0～spare_hook7） */
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
 struct ngx_module_s {
@@ -127,18 +151,19 @@ struct ngx_module_s {
      * NGX_HTTP_MODULE,NGX_CORE_MODULE,NGX_CONF_MODULE,
      * NGX_EVENT_MODULE,NGX_MAIL_MODULE
      */
-    ngx_uint_t            type;
+    ngx_uint_t            type;  /* 模块类型 */
 
-    ngx_int_t           (*init_master)(ngx_log_t *log);
+    /* nginx运行流程中对应的各过程 */
+    ngx_int_t           (*init_master)(ngx_log_t *log); /* 初始化master */
 
-    ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
+    ngx_int_t           (*init_module)(ngx_cycle_t *cycle); /* 初始化模块 */
 
-    ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
-    ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);
-    void                (*exit_thread)(ngx_cycle_t *cycle);
-    void                (*exit_process)(ngx_cycle_t *cycle);
+    ngx_int_t           (*init_process)(ngx_cycle_t *cycle); /* 初始化进程 */
+    ngx_int_t           (*init_thread)(ngx_cycle_t *cycle); /* 初始化线程 */
+    void                (*exit_thread)(ngx_cycle_t *cycle); /* 退出线程 */
+    void                (*exit_process)(ngx_cycle_t *cycle); /* 退出进程 */
 
-    void                (*exit_master)(ngx_cycle_t *cycle);
+    void                (*exit_master)(ngx_cycle_t *cycle); /* 退出master */
 
     uintptr_t             spare_hook0;
     uintptr_t             spare_hook1;
@@ -153,8 +178,8 @@ struct ngx_module_s {
 
 typedef struct {
     ngx_str_t             name;  /* core module名 */
-    void               *(*create_conf)(ngx_cycle_t *cycle);
-    char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
+    void               *(*create_conf)(ngx_cycle_t *cycle); /* 创建配置项，解析配置 */
+    char               *(*init_conf)(ngx_cycle_t *cycle, void *conf); /* 初始化配置 */
 } ngx_core_module_t;
 
 

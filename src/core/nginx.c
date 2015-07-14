@@ -160,18 +160,21 @@ static ngx_command_t  ngx_core_commands[] = {
       ngx_null_command
 };
 
-
+/*
+ * ngx_core_module.ctx，这里将creat_conf指向ngx_core_module_create_conf，
+ * 将init_conf指向ngx_core_module_init_conf
+ */
 static ngx_core_module_t  ngx_core_module_ctx = {
     ngx_string("core"),
     ngx_core_module_create_conf,
     ngx_core_module_init_conf
 };
 
-
+/* 初始化ngx_core_module,这里将ctx指向 ngx_core_module_ctx*/
 ngx_module_t  ngx_core_module = {
-    NGX_MODULE_V1,
-    &ngx_core_module_ctx,                  /* module context */
-    ngx_core_commands,                     /* module directives */
+    NGX_MODULE_V1,                         /* 前7个字段 */
+    &ngx_core_module_ctx,                  /* module context */ /* ngx_core_module_ctx */
+    ngx_core_commands,                     /* module directives */ /* ngx_core_commands */
     NGX_CORE_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
@@ -180,7 +183,7 @@ ngx_module_t  ngx_core_module = {
     NULL,                                  /* exit thread */
     NULL,                                  /* exit process */
     NULL,                                  /* exit master */
-    NGX_MODULE_V1_PADDING
+    NGX_MODULE_V1_PADDING                  /* 后8个字段 */
 };
 
 
@@ -974,7 +977,7 @@ ngx_process_options(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/* 为core module创建配置项 */
 static void *
 ngx_core_module_create_conf(ngx_cycle_t *cycle)
 {
