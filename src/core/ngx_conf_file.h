@@ -152,7 +152,7 @@ struct ngx_module_s {
 
 
 typedef struct {
-    ngx_str_t             name;
+    ngx_str_t             name;  /* core module名 */
     void               *(*create_conf)(ngx_cycle_t *cycle);
     char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
 } ngx_core_module_t;
@@ -170,20 +170,20 @@ typedef char *(*ngx_conf_handler_pt)(ngx_conf_t *cf,
 
 
 struct ngx_conf_s {
-    char                 *name;
-    ngx_array_t          *args;
+    char                 *name; /* 配置名 */
+    ngx_array_t          *args; /* 参数表 */
 
-    ngx_cycle_t          *cycle;
-    ngx_pool_t           *pool;
+    ngx_cycle_t          *cycle; /* 对应cycle */
+    ngx_pool_t           *pool; /* 内存池 */
     ngx_pool_t           *temp_pool;
-    ngx_conf_file_t      *conf_file;
+    ngx_conf_file_t      *conf_file; /* 配置文件 */
     ngx_log_t            *log;
 
-    void                 *ctx;
-    ngx_uint_t            module_type;
-    ngx_uint_t            cmd_type;
+    void                 *ctx; /* 对应的模块 */
+    ngx_uint_t            module_type; /* 模块类型 */
+    ngx_uint_t            cmd_type; /* 命令类型 */
 
-    ngx_conf_handler_pt   handler;
+    ngx_conf_handler_pt   handler; /* 配置处理回调句柄 */
     char                 *handler_conf;
 };
 

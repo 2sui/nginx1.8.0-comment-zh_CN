@@ -65,23 +65,31 @@ struct ngx_cycle_s {
 
     ngx_uint_t                log_use_stderr;  /* unsigned  log_use_stderr:1; */
 
-    ngx_connection_t        **files;
-    ngx_connection_t         *free_connections;
-    ngx_uint_t                free_connection_n;
+    ngx_connection_t        **files; /* 连接文件 */
+    ngx_connection_t         *free_connections; /* 空闲连接 */
+    ngx_uint_t                free_connection_n; /* 空闲连接数量 */
     /* 双向链表，元素是ngx_connection_t结构，表示可重复使用连接队列 */
     ngx_queue_t               reusable_connections_queue;
 
     /* 动态数组，每个数组元素储存着ngx_listening_t成员，表示监听端口及相关的参数 */
-    ngx_array_t               listening;
-    ngx_array_t               paths;
-    ngx_list_t                open_files;
-    ngx_list_t                shared_memory;
+    ngx_array_t               listening; /* ngx_listening_t */
+    /* 路径数组 */
+    ngx_array_t               paths; /* ngx_path_t */
+    /* 打开文件链表 */
+    ngx_list_t                open_files;  /* ngx_open_file_t */
+    /* 共享内存链表 */
+    ngx_list_t                shared_memory; /* ngx_shm_zone_t */
 
+    /* 链接数 */
     ngx_uint_t                connection_n;
+    /* 打开文件数 */
     ngx_uint_t                files_n;
 
+    /* 连接 */
     ngx_connection_t         *connections;
+    /* 读事件 */
     ngx_event_t              *read_events;
+    /* 写事件 */
     ngx_event_t              *write_events;
 
     /*
@@ -93,12 +101,12 @@ struct ngx_cycle_s {
      */
     ngx_cycle_t              *old_cycle;
 
-    ngx_str_t                 conf_file;
-    ngx_str_t                 conf_param;
-    ngx_str_t                 conf_prefix;
-    ngx_str_t                 prefix;
-    ngx_str_t                 lock_file;
-    ngx_str_t                 hostname;
+    ngx_str_t                 conf_file; /* 配置文件路径 */
+    ngx_str_t                 conf_param; /* 配置参数 */
+    ngx_str_t                 conf_prefix; /* 配置文件前缀 */
+    ngx_str_t                 prefix; /* 程序路径前缀 */
+    ngx_str_t                 lock_file; /* 文件锁 */
+    ngx_str_t                 hostname; /* 主机名 */
 };
 
 

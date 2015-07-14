@@ -198,6 +198,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_queue_init(&cycle->reusable_connections_queue);
 
 
+    /* 为ngx_cycle_t.conf_ctx(四维指针) */
     cycle->conf_ctx = ngx_pcalloc(pool, ngx_max_module * sizeof(void *));
     if (cycle->conf_ctx == NULL) {
         ngx_destroy_pool(pool);
@@ -226,6 +227,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
 
     for (i = 0; ngx_modules[i]; i++) {
+        /* 找到core module */
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
         }
@@ -233,6 +235,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         module = ngx_modules[i]->ctx;
 
         if (module->create_conf) {
+            /* 调用core_model的createa_conf句柄 */
             rv = module->create_conf(cycle);
             if (rv == NULL) {
                 ngx_destroy_pool(pool);
@@ -242,9 +245,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
     }
 
-
     senv = environ;
-
 
     ngx_memzero(&conf, sizeof(ngx_conf_t));
     /* STUB: init array ? */
@@ -294,7 +295,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             continue;
         }
 
-        module = ngx_modules[i]->ctx;
+        module = ngx_modules[i]->ctx; /* ngx_core_module_t */
 
         if (module->init_conf) {
             if (module->init_conf(cycle, cycle->conf_ctx[ngx_modules[i]->index])

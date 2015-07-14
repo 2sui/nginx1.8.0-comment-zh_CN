@@ -14,8 +14,8 @@
 
 
 struct ngx_file_s {
-    ngx_fd_t                   fd;
-    ngx_str_t                  name;
+    ngx_fd_t                   fd;  /* 文件句柄 */
+    ngx_str_t                  name; /* 文件名 */
     ngx_file_info_t            info;
 
     off_t                      offset;
