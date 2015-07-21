@@ -28,7 +28,7 @@ typedef ngx_int_t (*ngx_shm_zone_init_pt) (ngx_shm_zone_t *zone, void *data);
 
 struct ngx_shm_zone_s {
     void                     *data;
-    ngx_shm_t                 shm;
+    ngx_shm_t                 shm; /* 共享内存块 */
     ngx_shm_zone_init_pt      init;
     void                     *tag;
 };
@@ -61,35 +61,51 @@ struct ngx_cycle_s {
      * 在ngx_init_cycle方法执行后，将会根据nginx.conf配置文件中的配置项，构造出正确的日志文件，此时会对log重新赋值。
     */
     ngx_log_t                *log;
+    /*
+     * 从nginx.conf配置文件中读取到日志文件的路径后，将开始初始化error_log日志文件，由于log对象还在用于输出日知道屏幕，这时会用new_log
+     * 暂时替代log，初始化成功后将new_Log的地址赋给log指针。
+    */
     ngx_log_t                 new_log;
 
     ngx_uint_t                log_use_stderr;  /* unsigned  log_use_stderr:1; */
 
-    ngx_connection_t        **files; /* 连接文件 */
-    ngx_connection_t         *free_connections; /* 空闲连接 */
-    ngx_uint_t                free_connection_n; /* 空闲连接数量 */
+    /*
+     * 对于poll,rtsig这样的事件模块，会已有效文件句柄数来预构建ngx_connection_t结构，以加速事件收集、分发。
+     * 这时files会保存所有ngx_connection_t指针组成的数据（二维数组）,files_n指定这些指针的总数，文件句柄的值来访问files成员。
+     */
+    ngx_connection_t        **files;
+    /* free_connections指定链接池中空闲链接，free_connections_n指定空闲链接数量 */
+    ngx_connection_t         *free_connections;
+    ngx_uint_t                free_connection_n;
+
     /* 双向链表，元素是ngx_connection_t结构，表示可重复使用连接队列 */
     ngx_queue_t               reusable_connections_queue;
 
     /* 动态数组，每个数组元素储存着ngx_listening_t成员，表示监听端口及相关的参数 */
     ngx_array_t               listening; /* ngx_listening_t */
-    /* 路径数组 */
+
+    /* 保存nginx所有需要操作的目录。如果目录不存在则创建，如果创建失败则nginx启动失败。 */
     ngx_array_t               paths; /* ngx_path_t */
-    /* 打开文件链表 */
+
+    /*
+     * 打开文件链表，元素是ngx_open_file_t，表示nginx已打开的所有文件。Nginx框架不会向该连表中添加文件，
+     * 文件的添加由对此感兴趣的模块添加.
+     */
     ngx_list_t                open_files;  /* ngx_open_file_t */
-    /* 共享内存链表 */
+
+    /* 共享内存链表,元素是ngx_shm_zone_t，每个元素表示一块共享内存 */
     ngx_list_t                shared_memory; /* ngx_shm_zone_t */
 
-    /* 链接数 */
+    /* 链接对象总数 */
     ngx_uint_t                connection_n;
-    /* 打开文件数 */
+    /* files成员元素数 */
     ngx_uint_t                files_n;
 
-    /* 连接 */
+    /* 所有连接对象 */
     ngx_connection_t         *connections;
-    /* 读事件 */
+    /* 当前进程中所有读事件，connecton_n同时表示所有读事件总数 */
     ngx_event_t              *read_events;
-    /* 写事件 */
+    /* 当前进程所有写事件，connection_n同时表示所有写事件总数 */
     ngx_event_t              *write_events;
 
     /*
@@ -101,9 +117,9 @@ struct ngx_cycle_s {
      */
     ngx_cycle_t              *old_cycle;
 
-    ngx_str_t                 conf_file; /* 配置文件路径 */
-    ngx_str_t                 conf_param; /* 配置参数 */
-    ngx_str_t                 conf_prefix; /* 配置文件前缀 */
+    ngx_str_t                 conf_file; /* 配置文件名 */
+    ngx_str_t                 conf_param; /* 处理配置文件时需要特殊处理的在命令行中的参数，一般是-g选项携带的参数 */
+    ngx_str_t                 conf_prefix; /* 配置文件路径 */
     ngx_str_t                 prefix; /* 程序路径前缀 */
     ngx_str_t                 lock_file; /* 文件锁 */
     ngx_str_t                 hostname; /* 主机名 */
@@ -129,8 +145,8 @@ typedef struct {
      uint64_t                *cpu_affinity;
 
      char                    *username;
-     ngx_uid_t                user;
-     ngx_gid_t                group;
+     ngx_uid_t                user;    /* uid */
+     ngx_gid_t                group;   /* gid */
 
      ngx_str_t                working_directory;
      ngx_str_t                lock_file;

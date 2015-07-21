@@ -184,12 +184,12 @@ typedef struct {
 
 
 typedef struct {
-    ngx_file_t            file;
-    ngx_buf_t            *buffer;
+    ngx_file_t            file; /* 文件句柄 */
+    ngx_buf_t            *buffer; /* 缓冲 */
     ngx_uint_t            line;
 } ngx_conf_file_t;
 
-
+/* 指向函数指针的指针 */
 typedef char *(*ngx_conf_handler_pt)(ngx_conf_t *cf,
     ngx_command_t *dummy, void *conf);
 

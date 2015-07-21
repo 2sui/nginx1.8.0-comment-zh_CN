@@ -57,7 +57,7 @@ static ngx_uint_t argument_number[] = {
     NGX_CONF_TAKE7
 };
 
-
+/* 解析命令行中的配置 */
 char *
 ngx_conf_param(ngx_conf_t *cf)
 {
@@ -96,7 +96,7 @@ ngx_conf_param(ngx_conf_t *cf)
     return rv;
 }
 
-
+/* 解析配置文件 */
 char *
 ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 {
@@ -109,17 +109,19 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         parse_file = 0,
         parse_block,
         parse_param
-    } type;
+    } type; /* 三种解析环境 */
 
 #if (NGX_SUPPRESS_WARN)
     fd = NGX_INVALID_FILE;
     prev = NULL;
 #endif
 
+    /* 如果指定了配置文件 */
     if (filename) {
 
         /* open configuration file */
 
+        /* 打开配置文件 */
         fd = ngx_open_file(filename->data, NGX_FILE_RDONLY, NGX_FILE_OPEN, 0);
         if (fd == NGX_INVALID_FILE) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
@@ -128,17 +130,21 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             return NGX_CONF_ERROR;
         }
 
+        /* 保存已有conf_file(如果不是第一次启动) */
         prev = cf->conf_file;
 
         cf->conf_file = &conf_file;
 
+        /* 获取文件信息 */
         if (ngx_fd_info(fd, &cf->conf_file->file.info) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, ngx_errno,
                           ngx_fd_info_n " \"%s\" failed", filename->data);
         }
 
+        /* 设置文件buf */
         cf->conf_file->buffer = &buf;
 
+        /* 为buf分配空间并初始化 */
         buf.start = ngx_alloc(NGX_CONF_BUFFER, cf->log);
         if (buf.start == NULL) {
             goto failed;
@@ -149,6 +155,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         buf.end = buf.last + NGX_CONF_BUFFER;
         buf.temporary = 1;
 
+        /* 设置打开的配置文件 */
         cf->conf_file->file.fd = fd;
         cf->conf_file->file.name.len = filename->len;
         cf->conf_file->file.name.data = filename->data;
@@ -156,18 +163,28 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         cf->conf_file->file.log = cf->log;
         cf->conf_file->line = 1;
 
+        /* 将类型设为解析配置文件parse_file */
         type = parse_file;
 
     } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {
 
+        /*
+         * 如果没有指定配置文件，但是存在合法的conf_file，
+         * 则类型为parse_block
+        */
         type = parse_block;
 
     } else {
+        /*
+         * 如果没有指定配置文件，但是构造了conf_file，但是conf_file无效（ngx_conf_param中调用），
+         * 则类型为parse_param
+        */
         type = parse_param;
     }
 
 
     for ( ;; ) {
+        /* 词法分析 */
         rc = ngx_conf_read_token(cf);
 
         /*
@@ -229,6 +246,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
                 goto failed;
             }
 
+            /* 调用自定义解析函数 */
             rv = (*cf->handler)(cf, NULL, cf->handler_conf);
             if (rv == NGX_CONF_OK) {
                 continue;
@@ -258,10 +276,12 @@ failed:
 done:
 
     if (filename) {
+        /* 释放buf */
         if (cf->conf_file->buffer->start) {
             ngx_free(cf->conf_file->buffer->start);
         }
 
+        /* 关闭文件 */
         if (ngx_close_file(fd) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_ALERT, cf->log, ngx_errno,
                           ngx_close_file_n " %s failed",
@@ -269,6 +289,7 @@ done:
             rc = NGX_ERROR;
         }
 
+        /* 恢复配置 */
         cf->conf_file = prev;
     }
 
@@ -426,7 +447,7 @@ invalid:
     return NGX_ERROR;
 }
 
-
+/* 配置词法分析 */
 static ngx_int_t
 ngx_conf_read_token(ngx_conf_t *cf)
 {
@@ -799,7 +820,7 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return rv;
 }
 
-
+/* 获取cycle中conf_prefix与name拼接的完整名，保存在name中 */
 ngx_int_t
 ngx_conf_full_name(ngx_cycle_t *cycle, ngx_str_t *name, ngx_uint_t conf_prefix)
 {

@@ -320,7 +320,7 @@ ngx_log_init(u_char *prefix)
     u_char  *p, *name;
     size_t   nlen, plen;
 
-    ngx_log.file = &ngx_log_file;
+    ngx_log.file = &ngx_log_file;/* 全局日志对象 */
     ngx_log.log_level = NGX_LOG_NOTICE; /* 日志级别 */
 
     name = (u_char *) NGX_ERROR_LOG_PATH; /* 日志路径 */
@@ -362,6 +362,7 @@ ngx_log_init(u_char *prefix)
 #endif
         }
 
+        /* 给name分配足够的空间，将prefix与NGX_ERROR_LOG_PATH拼起来，指定log的完全路径 */
         if (plen) {
             name = malloc(plen + nlen + 2);
             if (name == NULL) {

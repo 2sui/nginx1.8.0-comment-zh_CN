@@ -223,7 +223,10 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    /* 根据上一步设置的对应的参数变量进行相应的操作 */
+    /*
+     * 根据上一步设置的对应的参数变量进行相应的操作, ngx_show_version、ngx_show_help
+     * 在 ngx_get_option() 中置 1
+    */
     if (ngx_show_version) {
         ngx_write_stderr("nginx version: " NGINX_VER_BUILD NGX_LINEFEED);
 
@@ -255,6 +258,7 @@ main(int argc, char *const *argv)
                 );
         }
 
+        /* ngx_show_configure 在 ngx_get_option() 中置 1 */
         if (ngx_show_configure) {
 
 #ifdef NGX_COMPILER
@@ -282,6 +286,7 @@ main(int argc, char *const *argv)
             ngx_write_stderr("configure arguments:" NGX_CONFIGURE NGX_LINEFEED);
         }
 
+        /* ngx_test_config 在 ngx_get_option() 中置 1 */
         if (!ngx_test_config) {
             return 0;
         }
@@ -301,7 +306,10 @@ main(int argc, char *const *argv)
     /* 获取master进程id */
     ngx_pid = ngx_getpid();
 
-    /* 初始化一个日志，这里是临时日志，如果有ngx_prefix前缀则日志创建在该前缀路径中 */
+    /*
+     * 初始化一个日志，这里是临时日志log，如果有ngx_prefix前缀则日志创建在该前缀路径中,
+     * ngx_prefix 在 ngx_get_option() 中设置
+     */
     log = ngx_log_init(ngx_prefix);
     if (log == NULL) {
         return 1;
@@ -318,8 +326,8 @@ main(int argc, char *const *argv)
      */
 
     ngx_memzero(&init_cycle, sizeof(ngx_cycle_t));
-    init_cycle.log = log; /* 把临时打开的日志赋给init_cycle */
-    ngx_cycle = &init_cycle; /* 主ngx_cycle指向init_cycle */
+    init_cycle.log = log; /* 把临时打开的日志赋给init_cycle（临时cycle） */
+    ngx_cycle = &init_cycle; /* 主ngx_cycle指向临时cycle */
 
     /* 初始化init_cycle的pool内存池，大小为1024（这里只有ngx_pool_t.d被分配了空间） */
     init_cycle.pool = ngx_create_pool(1024, log);
@@ -338,9 +346,9 @@ main(int argc, char *const *argv)
     /*
      * 在init_cycle中保存:
      *      1.ngx_prefix(init_cycle.conf_prefix,init_cycle.prefix)，如果ngx_prefix
-     *        为空，则为当前路径或NGX_PREFIX、NGX_CONF_PREFIX指定的路径
-     *      2.ngx_conf_file(init_cycle.conf_file),如果ngx_conf_file未定义则使用NGX_CONF_PATH
-     *      3.ngx_conf_params(init_cycle.conf_param)
+     *        为空，则为当前路径或NGX_PREFIX、NGX_CONF_PREFIX指定的路径（保存nginx主路径）
+     *      2.ngx_conf_file(init_cycle.conf_file),如果ngx_conf_file未定义则使用NGX_CONF_PATH（nginx配置文件路径）
+     *      3.ngx_conf_params(init_cycle.conf_param)（配置参数）
      *      4.ngx_test_config,设置日志等级（NGX_LOG_INFO）
     */
     if (ngx_process_options(&init_cycle) != NGX_OK) {
@@ -360,7 +368,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    /* 继承socket，继承来的socket房子init_cycle.listening数组中（用于平滑升级?） */
+    /* 继承socket，继承来的socket房子init_cycle.listening数组中（用于平滑升级，通过换进变量传递旧的监听套接字给新程序）*/
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -371,7 +379,9 @@ main(int argc, char *const *argv)
         ngx_modules[i]->index = ngx_max_module++;
     }
 
-    /* 初始化ngx_cycle_t并继承旧的ngx_cycle_t */
+    /*
+     * 初始化ngx_cycle_t并继承旧的ngx_cycle_t，解析配置文件，加载模块，打开监听端口，初始化进程间通信方式等
+    */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
         if (ngx_test_config) {
@@ -382,6 +392,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    /* ngx_test_config 在 ngx_get_option() 中设置 */
     if (ngx_test_config) {
         if (!ngx_quiet_mode) {
             ngx_log_stderr(0, "configuration file %s test is successful",
@@ -391,6 +402,7 @@ main(int argc, char *const *argv)
         return 0;
     }
 
+    /* ngx_signal 在 ngx_get_option() 中设置 */
     if (ngx_signal) {
         return ngx_signal_process(cycle, ngx_signal);
     }
@@ -401,8 +413,9 @@ main(int argc, char *const *argv)
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+    /* 之前 ngx_process 未赋过值，所以全局变量 ngx_process 此时为 0 */
     if (ccf->master && ngx_process == NGX_PROCESS_SINGLE) {
-        ngx_process = NGX_PROCESS_MASTER;
+        ngx_process = NGX_PROCESS_MASTER; /* 此时 ngx_process 被设为 1 */
     }
 
 #if !(NGX_WIN32)
@@ -452,7 +465,7 @@ main(int argc, char *const *argv)
     return 0;
 }
 
-
+/* 继承socket，平滑升级 */
 static ngx_int_t
 ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 {
@@ -757,21 +770,27 @@ ngx_get_options(int argc, char *const *argv)
                 ngx_quiet_mode = 1;
                 break;
 
+                /* 第一次给ngx_prefix赋值(程序安装目录) */
             case 'p':
+                /* 如果-p后紧跟着前缀路径，调至next */
                 if (*p) {
                     ngx_prefix = p;
                     goto next;
                 }
 
+                /* 否则-p参数空格后的字段为前缀路径 */
                 if (argv[++i]) {
                     ngx_prefix = (u_char *) argv[i];
                     goto next;
                 }
 
+                /* 如果-p参数后没有跟路径 */
                 ngx_log_stderr(0, "option \"-p\" requires directory name");
                 return NGX_ERROR;
 
+                /* 第一次给ngx_conf_file赋值(nginx.conf) */
             case 'c':
+                /* 解析流程同ngx_prefix */
                 if (*p) {
                     ngx_conf_file = p;
                     goto next;
@@ -785,7 +804,9 @@ ngx_get_options(int argc, char *const *argv)
                 ngx_log_stderr(0, "option \"-c\" requires file name");
                 return NGX_ERROR;
 
+                /* 第一次给ngx_conf_params赋值(与配置相关的命令行参数) */
             case 'g':
+                /* 解析流程同ngx_prefix */
                 if (*p) {
                     ngx_conf_params = p;
                     goto next;
@@ -837,7 +858,9 @@ ngx_get_options(int argc, char *const *argv)
     return NGX_OK;
 }
 
-
+/*
+ * 解析处理保存参数
+*/
 static ngx_int_t
 ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 {
@@ -879,13 +902,16 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
     return NGX_OK;
 }
 
-
+/*
+ * 处理参数
+*/
 static ngx_int_t
 ngx_process_options(ngx_cycle_t *cycle)
 {
     u_char  *p;
     size_t   len;
 
+    /* 如果指定ngx_prefix则conf_prefix和prefix使用ngx_prefix */
     if (ngx_prefix) {
         len = ngx_strlen(ngx_prefix);
         p = ngx_prefix;
@@ -909,6 +935,7 @@ ngx_process_options(ngx_cycle_t *cycle)
 
 #ifndef NGX_PREFIX
 
+        /* 如果没有指定ngx_prefix也没有宏定义NGX_PREFIX则使用当前工作目录 */
         p = ngx_pnalloc(cycle->pool, NGX_MAX_PATH);
         if (p == NULL) {
             return NGX_ERROR;
@@ -940,6 +967,7 @@ ngx_process_options(ngx_cycle_t *cycle)
 #endif
     }
 
+    /* 如果指定了配置文件则直接使用，否则使用NGX_CONF_PATH宏定义 */
     if (ngx_conf_file) {
         cycle->conf_file.len = ngx_strlen(ngx_conf_file);
         cycle->conf_file.data = ngx_conf_file;
@@ -948,7 +976,7 @@ ngx_process_options(ngx_cycle_t *cycle)
         ngx_str_set(&cycle->conf_file, NGX_CONF_PATH);
     }
 
-    /* 获取配置文件绝对路径 */
+    /* 获取配置文件绝对路径，存在conf_file */
     if (ngx_conf_full_name(cycle, &cycle->conf_file, 0) != NGX_OK) {
         return NGX_ERROR;
     }
@@ -977,7 +1005,11 @@ ngx_process_options(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-/* 为core module创建配置项 */
+/*
+ * 为core module创建配置项,
+ * 创建ngx_core_conf_t并进行初始化，
+ * 用于解析配置前调用
+ */
 static void *
 ngx_core_module_create_conf(ngx_cycle_t *cycle)
 {
@@ -998,6 +1030,7 @@ ngx_core_module_create_conf(ngx_cycle_t *cycle)
      *     ccf->cpu_affinity = NULL;
      */
 
+    /* 初始化ngx_core_conf_t各字段 */
     ccf->daemon = NGX_CONF_UNSET;
     ccf->master = NGX_CONF_UNSET;
     ccf->timer_resolution = NGX_CONF_UNSET_MSEC;
@@ -1026,12 +1059,15 @@ ngx_core_module_create_conf(ngx_cycle_t *cycle)
     return ccf;
 }
 
-
+/*
+ * 设置保存解析的配置项
+*/
 static char *
 ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
 {
     ngx_core_conf_t  *ccf = conf;
 
+    /* 设置各字段 */
     ngx_conf_init_value(ccf->daemon, 1);
     ngx_conf_init_value(ccf->master, 1);
     ngx_conf_init_msec_value(ccf->timer_resolution, 0);
@@ -1039,8 +1075,9 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
     ngx_conf_init_value(ccf->worker_processes, 1);
     ngx_conf_init_value(ccf->debug_points, 0);
 
-#if (NGX_HAVE_CPU_AFFINITY)
 
+#if (NGX_HAVE_CPU_AFFINITY)
+    /* 设置cpu亲和性位 */
     if (ccf->cpu_affinity_n
         && ccf->cpu_affinity_n != 1
         && ccf->cpu_affinity_n != (ngx_uint_t) ccf->worker_processes)
@@ -1062,6 +1099,7 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
 #endif
 
 
+    /* 从core_conf中获取pid名并与cycle中prefix拼接 */
     if (ccf->pid.len == 0) {
         ngx_str_set(&ccf->pid, NGX_PID_PATH);
     }
@@ -1077,12 +1115,14 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
         return NGX_CONF_ERROR;
     }
 
+    /* 将pid复制进oldpid并加后缀 */
     ngx_memcpy(ngx_cpymem(ccf->oldpid.data, ccf->pid.data, ccf->pid.len),
                NGX_OLDPID_EXT, sizeof(NGX_OLDPID_EXT));
 
 
 #if !(NGX_WIN32)
 
+    /* 如果配置中没有设置uid和gid，则使用NGX_USER和NGX_GROUP */
     if (ccf->user == (uid_t) NGX_CONF_UNSET_UINT && geteuid() == 0) {
         struct group   *grp;
         struct passwd  *pwd;
@@ -1110,10 +1150,12 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
     }
 
 
+    /* 未配置文件锁则使用默认 */
     if (ccf->lock_file.len == 0) {
         ngx_str_set(&ccf->lock_file, NGX_LOCK_PATH);
     }
 
+    /* 将prefix与锁文件名拼接 */
     if (ngx_conf_full_name(cycle, &ccf->lock_file, 0) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
@@ -1123,6 +1165,7 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
 
     lock_file = cycle->old_cycle->lock_file;
 
+    /* 如果cycle中有继承来的锁文件（accept锁） */
     if (lock_file.len) {
         lock_file.len--;
 

@@ -63,7 +63,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     tp = ngx_timeofday(); /* ngx_cache_time */
     tp->sec = 0;
 
-    ngx_time_update(); /* 更新time */
+    ngx_time_update(); /* 更新time槽 */
 
 
     log = old_cycle->log;
@@ -82,12 +82,17 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-    /* 下面几步开始继承old_cycle中的内容 */
 
     cycle->pool = pool;
-    cycle->log = log;
+
+    /*
+     * 下面几步开始继承old_cycle中的内容
+     */
+
+    cycle->log = log; /* old_cycle中的log */
     cycle->old_cycle = old_cycle;
 
+    /* 配置文件路径前缀 */
     cycle->conf_prefix.len = old_cycle->conf_prefix.len;
     cycle->conf_prefix.data = ngx_pstrdup(pool, &old_cycle->conf_prefix);
     if (cycle->conf_prefix.data == NULL) {
@@ -95,6 +100,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
+    /* 程序路径前缀 */
     cycle->prefix.len = old_cycle->prefix.len;
     cycle->prefix.data = ngx_pstrdup(pool, &old_cycle->prefix);
     if (cycle->prefix.data == NULL) {
@@ -102,6 +108,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
+    /* 配置文件名 */
     cycle->conf_file.len = old_cycle->conf_file.len;
     cycle->conf_file.data = ngx_pnalloc(pool, old_cycle->conf_file.len + 1);
     if (cycle->conf_file.data == NULL) {
@@ -111,6 +118,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_cpystrn(cycle->conf_file.data, old_cycle->conf_file.data,
                 old_cycle->conf_file.len + 1);
 
+    /* 与配置相关的命令行参数 */
     cycle->conf_param.len = old_cycle->conf_param.len;
     cycle->conf_param.data = ngx_pstrdup(pool, &old_cycle->conf_param);
     if (cycle->conf_param.data == NULL) {
@@ -118,7 +126,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-    /* 文件路径分配空间并初始化 ，如果old_cycle默认没有指定，则大小为10 */
+    /* 为所有文件目录分配空间并初始化 ，如果old_cycle默认没有指定，则大小为10 */
     n = old_cycle->paths.nelts ? old_cycle->paths.nelts : 10;
 
     cycle->paths.elts = ngx_pcalloc(pool, n * sizeof(ngx_path_t *));
@@ -232,15 +240,17 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             continue;
         }
 
+        /* ngx_core_module_t */
         module = ngx_modules[i]->ctx;
 
         if (module->create_conf) {
-            /* 调用core_model的createa_conf句柄 */
+            /* 调用core_model的createa_conf句柄，获取ngx_conf_t结构体空间 */
             rv = module->create_conf(cycle);
             if (rv == NULL) {
                 ngx_destroy_pool(pool);
                 return NULL;
             }
+            /* 将ngx_core_module_t这类模块指针指向rv，即ngx_core_conf_t */
             cycle->conf_ctx[ngx_modules[i]->index] = rv;
         }
     }
@@ -249,12 +259,14 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     ngx_memzero(&conf, sizeof(ngx_conf_t));
     /* STUB: init array ? */
+    /* 为参数列表创建空间，容量为10 */
     conf.args = ngx_array_create(pool, 10, sizeof(ngx_str_t));
     if (conf.args == NULL) {
         ngx_destroy_pool(pool);
         return NULL;
     }
 
+    /* 申请临时内存池 16K*/
     conf.temp_pool = ngx_create_pool(NGX_CYCLE_POOL_SIZE, log);
     if (conf.temp_pool == NULL) {
         ngx_destroy_pool(pool);
@@ -262,6 +274,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     }
 
 
+    /* 初始化 ngx_conf_t，存放解析配置的上下文 */
     conf.ctx = cycle->conf_ctx;
     conf.cycle = cycle;
     conf.pool = pool;
@@ -273,12 +286,17 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     log->log_level = NGX_LOG_DEBUG_ALL;
 #endif
 
+    /*
+     * 解析命令行中的配置（-g参数）,这里会将-g参数的配置项填入conf中并构建空的ngx_conf_file_t，
+     * 然后会调用 ngx_conf_parse 解析这个构造的conf
+    */
     if (ngx_conf_param(&conf) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
         return NULL;
     }
 
+    /* 解析配置文件 */
     if (ngx_conf_parse(&conf, &cycle->conf_file) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
@@ -297,6 +315,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
         module = ngx_modules[i]->ctx; /* ngx_core_module_t */
 
+        /*
+         * ngx_core_module_t 在nginx.c文件中作为全局变量初始化
+         * 这里再次找到核心模块（在解析完配置之后），调用init_conf回调函数初始化保存
+         * 解析后的配置
+         */
         if (module->init_conf) {
             if (module->init_conf(cycle, cycle->conf_ctx[ngx_modules[i]->index])
                 == NGX_CONF_ERROR)
@@ -308,12 +331,18 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
     }
 
+    /* 单进程模式则完成初始化 */
     if (ngx_process == NGX_PROCESS_SIGNALLER) {
         return cycle;
     }
 
+    /* 获取核心模块配置上下文 */
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+    /*
+     * 如果设置了test_config则创建pid文件，否则如果是第一次调用ngx_init_cycle则不创建（会写入守护进程id），不是第一次
+     * 调用ngx_init_cycle
+    */
     if (ngx_test_config) {
 
         if (ngx_create_pidfile(&ccf->pid, log) != NGX_OK) {
@@ -327,8 +356,10 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
          * because we need to write the demonized process pid
          */
 
+        /* 旧的核心模块配置上下文 */
         old_ccf = (ngx_core_conf_t *) ngx_get_conf(old_cycle->conf_ctx,
                                                    ngx_core_module);
+        /* 如果新旧pid文件名不同的话则创建新pid文件删除旧的 */
         if (ccf->pid.len != old_ccf->pid.len
             || ngx_strcmp(ccf->pid.data, old_ccf->pid.data) != 0)
         {
@@ -343,6 +374,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     }
 
 
+    /* 测试锁文件是否存在 */
     if (ngx_test_lockfile(cycle->lock_file.data, log) != NGX_OK) {
         goto failed;
     }
@@ -1031,7 +1063,7 @@ ngx_signal_process(ngx_cycle_t *cycle, char *sig)
 
 }
 
-
+/* 测试锁文件是否存在 */
 static ngx_int_t
 ngx_test_lockfile(u_char *file, ngx_log_t *log)
 {

@@ -10,7 +10,7 @@
 
 
 #if (NGX_HAVE_MAP_ANON)
-
+/* 创建匿名内存映射，共享内存 */
 ngx_int_t
 ngx_shm_alloc(ngx_shm_t *shm)
 {
@@ -79,7 +79,7 @@ ngx_shm_free(ngx_shm_t *shm)
 }
 
 #elif (NGX_HAVE_SYSVSHM)
-
+/* 使用 XSI 的 shm */
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
