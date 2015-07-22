@@ -123,6 +123,12 @@ struct ngx_open_file_s {
 /* 初始化ngx_module_t的最后8个字段（spare_hook0～spare_hook7） */
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
+/*
+ * 对于各类模块而言，每类模块都由一个ngx_modules_t维护，其中的ctx字段都会指向
+ * 一个对应该类模块上下文的结构ngx_core_module_t，这个结构中由创建（create_conf）和初始化（init_conf）该类
+ * 模块各项配置的回调函数进行详细模块的初始化工作.
+ * 所以ngx_cycle_t的conf_ctx字段直接指向ngx_modules_t的数组，每个数组中的ctx指向一个ngx_core_module_t。
+ */
 struct ngx_module_s {
     /*
      * 对于一类模块（由下面的type成员决定类别）而言，ctx_index表示当前模块在这类模块中的索引号。
@@ -204,11 +210,11 @@ struct ngx_conf_s {
     ngx_conf_file_t      *conf_file; /* 配置文件 */
     ngx_log_t            *log;
 
-    void                 *ctx; /* 对应的模块 */
+    void                 *ctx; /* 对应的模块上下文 */
     ngx_uint_t            module_type; /* 模块类型 */
     ngx_uint_t            cmd_type; /* 命令类型 */
 
-    ngx_conf_handler_pt   handler; /* 配置处理回调句柄 */
+    ngx_conf_handler_pt   handler; /* 自定义配置处理回调句柄 */
     char                 *handler_conf;
 };
 

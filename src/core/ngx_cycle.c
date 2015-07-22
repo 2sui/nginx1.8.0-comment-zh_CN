@@ -235,14 +235,15 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
 
     for (i = 0; ngx_modules[i]; i++) {
-        /* 找到core module */
+        /* 找到每类模块的core module */
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
         }
 
-        /* ngx_core_module_t */
+        /* ngx_core_module_t，获取ngx_core_module_t */
         module = ngx_modules[i]->ctx;
 
+        /* 初始化每类模块的core module，创建对应的conf_ctx */
         if (module->create_conf) {
             /* 调用core_model的createa_conf句柄，获取ngx_conf_t结构体空间 */
             rv = module->create_conf(cycle);

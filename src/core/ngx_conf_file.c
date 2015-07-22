@@ -262,6 +262,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         }
 
 
+        /* 指令解析 */
         rc = ngx_conf_handler(cf, rc);
 
         if (rc == NGX_ERROR) {
@@ -300,7 +301,7 @@ done:
     return NGX_CONF_OK;
 }
 
-
+/* nginx指令解析 */
 static ngx_int_t
 ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 {
@@ -321,18 +322,21 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             continue;
         }
 
+        /* 判断指令用法是否正确 */
         for ( /* void */ ; cmd->name.len; cmd++) {
 
             if (name->len != cmd->name.len) {
                 continue;
             }
 
+            /* 判断conf模块指令名是否一致 */
             if (ngx_strcmp(name->data, cmd->name.data) != 0) {
                 continue;
             }
 
             found = 1;
 
+            /* 只有当模块为conf_module或者配置模块与当前模块类型相同是才继续 */
             if (ngx_modules[i]->type != NGX_CONF_MODULE
                 && ngx_modules[i]->type != cf->module_type)
             {
@@ -340,11 +344,12 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             /* is the directive's location right ? */
-
+            /* 上下文需要与当前一致 */
             if (!(cmd->type & cf->cmd_type)) {
                 continue;
             }
 
+            /* 非指令模块需要以“；”结尾 */
             if (!(cmd->type & NGX_CONF_BLOCK) && last != NGX_OK) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                   "directive \"%s\" is not terminated by \";\"",
@@ -352,6 +357,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                 return NGX_ERROR;
             }
 
+            /* 块指令必须在“｛”后 */
             if ((cmd->type & NGX_CONF_BLOCK) && last != NGX_CONF_BLOCK_START) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "directive \"%s\" has no opening \"{\"",
@@ -361,6 +367,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 
             /* is the directive's argument count right ? */
 
+            /* 判断指令参数数量是否正确 */
             if (!(cmd->type & NGX_CONF_ANY)) {
 
                 if (cmd->type & NGX_CONF_FLAG) {
@@ -381,6 +388,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                         goto invalid;
                     }
 
+                    /* 最大支持 8 个参数 */
                 } else if (cf->args->nelts > NGX_CONF_MAX_ARGS) {
 
                     goto invalid;
@@ -395,10 +403,11 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 
             conf = NULL;
 
-            if (cmd->type & NGX_DIRECT_CONF) {
+            /* 获取工作conf指针 */
+            if (cmd->type & NGX_DIRECT_CONF) { /* ctx直接指向conf存储区，是存储区的指针（主要用于core模块） */
                 conf = ((void **) cf->ctx)[ngx_modules[i]->index];
 
-            } else if (cmd->type & NGX_MAIN_CONF) {
+            } else if (cmd->type & NGX_MAIN_CONF) { /* ctx解引用后就是那片存储区首地址，所以要取址 */
                 conf = &(((void **) cf->ctx)[ngx_modules[i]->index]);
 
             } else if (cf->ctx) {
