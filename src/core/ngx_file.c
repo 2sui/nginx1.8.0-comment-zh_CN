@@ -566,6 +566,7 @@ ngx_add_path(ngx_conf_t *cf, ngx_path_t **slot)
 }
 
 
+/* 根据cycle中paths字段建立目录 */
 ngx_int_t
 ngx_create_paths(ngx_cycle_t *cycle, ngx_uid_t user)
 {

@@ -280,8 +280,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     conf.cycle = cycle;
     conf.pool = pool;
     conf.log = log;
-    conf.module_type = NGX_CORE_MODULE;
-    conf.cmd_type = NGX_MAIN_CONF;
+    conf.module_type = NGX_CORE_MODULE; /* 模块类型为core_module（理解为所有核心模块配置？） */
+    conf.cmd_type = NGX_MAIN_CONF; /* 命令类型为 main conf */
 
 #if 0
     log->log_level = NGX_LOG_DEBUG_ALL;

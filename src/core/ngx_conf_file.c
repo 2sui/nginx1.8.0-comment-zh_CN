@@ -169,15 +169,13 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
     } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {
 
         /*
-         * 如果没有指定配置文件，但是存在合法的conf_file，
-         * 则类型为parse_block
+         * 如果没有指定配置文件，但是有正在解析中的配置文件，则为parse_block
         */
         type = parse_block;
 
     } else {
         /*
-         * 如果没有指定配置文件，但是构造了conf_file，但是conf_file无效（ngx_conf_param中调用），
-         * 则类型为parse_param
+         * 如果没有指定配置文件，也没有解析中的配置文件，则为parse_param
         */
         type = parse_param;
     }
@@ -329,7 +327,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                 continue;
             }
 
-            /* 判断conf模块指令名是否一致 */
+            /* 在cmd中找到当前解析到的指令 */
             if (ngx_strcmp(name->data, cmd->name.data) != 0) {
                 continue;
             }
@@ -404,13 +402,13 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             conf = NULL;
 
             /* 获取工作conf指针 */
-            if (cmd->type & NGX_DIRECT_CONF) { /* ctx直接指向conf存储区，是存储区的指针（主要用于core模块） */
-                conf = ((void **) cf->ctx)[ngx_modules[i]->index];
+            if (cmd->type & NGX_DIRECT_CONF) { /* 表示开始解析conf,在根conf中，该标志一般与NGX_MAIN_CONF在一起（包含二级模块除外），指针需要指向conf结构（即将进入main_conf） */
+                conf = ((void **) cf->ctx)[ngx_modules[i]->index]; /* 这里直接取得core conf 指针 */
 
-            } else if (cmd->type & NGX_MAIN_CONF) { /* ctx解引用后就是那片存储区首地址，所以要取址 */
-                conf = &(((void **) cf->ctx)[ngx_modules[i]->index]);
+            } else if (cmd->type & NGX_MAIN_CONF) { /* 当前在main_conf中，即将进入二级配置中 */
+                conf = &(((void **) cf->ctx)[ngx_modules[i]->index]); /* 取得保存conf指针的地址 */
 
-            } else if (cf->ctx) {
+            } else if (cf->ctx) { /* 二级配置模块中 */
                 confp = *(void **) ((char *) cf->ctx + cmd->conf);
 
                 if (confp) {
