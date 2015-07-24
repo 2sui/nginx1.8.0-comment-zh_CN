@@ -121,7 +121,7 @@ struct ngx_cycle_s {
     ngx_str_t                 hostname; /* 主机名 */
 };
 
-
+/* 主配置结构 */
 typedef struct {
      ngx_flag_t               daemon;
      ngx_flag_t               master;

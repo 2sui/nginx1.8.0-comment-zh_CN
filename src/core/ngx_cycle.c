@@ -380,7 +380,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         goto failed;
     }
 
-
+    /* 建立需要操作的目录 */
     if (ngx_create_paths(cycle, ccf->user) != NGX_OK) {
         goto failed;
     }
@@ -395,8 +395,10 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     part = &cycle->open_files.part;
     file = part->elts;
 
+    /* 打开需要的文件 */
     for (i = 0; /* void */ ; i++) {
 
+        /* 从队列中依次取出元素， 当遇到结尾则跳出循环 */
         if (i >= part->nelts) {
             if (part->next == NULL) {
                 break;
@@ -436,6 +438,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 #endif
     }
 
+    /* 将log指定为new_log */
     cycle->log = &cycle->new_log;
     pool->log = &cycle->new_log;
 
@@ -447,6 +450,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     for (i = 0; /* void */ ; i++) {
 
+        /* 从队列中依次取出元素， 当遇到结尾则跳出循环。（从队列的数组元素中获取；切换数组元素） */
         if (i >= part->nelts) {
             if (part->next == NULL) {
                 break;
@@ -465,9 +469,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
         shm_zone[i].shm.log = cycle->log;
 
+        /* 保存旧的共享内存 */
         opart = &old_cycle->shared_memory.part;
         oshm_zone = opart->elts;
 
+        /* 从旧的共享内存中取出来进行比较 */
         for (n = 0; /* void */ ; n++) {
 
             if (n >= opart->nelts) {
@@ -479,6 +485,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                 n = 0;
             }
 
+            /*
+             * 找到旧的共享内存与新的共享内存相同的部分，不同的部分被保留
+             */
             if (shm_zone[i].shm.name.len != oshm_zone[n].shm.name.len) {
                 continue;
             }
@@ -491,18 +500,20 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                 continue;
             }
 
+            /* 将相同部分共享内存地址直接赋给新共享内存。tag不相同的部分会被释放 */
             if (shm_zone[i].tag == oshm_zone[n].tag
                 && shm_zone[i].shm.size == oshm_zone[n].shm.size)
             {
                 shm_zone[i].shm.addr = oshm_zone[n].shm.addr;
 
+                /* 调用初始化回调 */
                 if (shm_zone[i].init(&shm_zone[i], oshm_zone[n].data)
                     != NGX_OK)
                 {
                     goto failed;
                 }
 
-                goto shm_zone_found;
+                goto shm_zone_found; /* 寻找下一组相同共享内存 */
             }
 
             ngx_shm_free(&oshm_zone[n].shm);
@@ -510,6 +521,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             break;
         }
 
+        /* 在旧的cycle中没有找到已有的共享内存，则分配新的 */
         if (ngx_shm_alloc(&shm_zone[i].shm) != NGX_OK) {
             goto failed;
         }
@@ -530,6 +542,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     /* handle the listening sockets */
 
+    /* 处理监听套接字 */
     if (old_cycle->listening.nelts) {
         ls = old_cycle->listening.elts;
         for (i = 0; i < old_cycle->listening.nelts; i++) {

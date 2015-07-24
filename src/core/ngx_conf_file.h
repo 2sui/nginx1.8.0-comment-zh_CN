@@ -78,6 +78,7 @@
 struct ngx_command_s {
     ngx_str_t             name;
     ngx_uint_t            type;
+    /* 指令回调函数 */
     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
     ngx_uint_t            conf;
     ngx_uint_t            offset;
@@ -181,7 +182,7 @@ struct ngx_module_s {
     uintptr_t             spare_hook7;
 };
 
-
+/* 维护各类模块的核心模块 */
 typedef struct {
     ngx_str_t             name;  /* core module名 */
     void               *(*create_conf)(ngx_cycle_t *cycle); /* 创建配置项，解析配置 */
@@ -210,7 +211,7 @@ struct ngx_conf_s {
     ngx_conf_file_t      *conf_file; /* 配置文件 */
     ngx_log_t            *log;
 
-    void                 *ctx; /* 需要配置的模块上下文 */
+    void                 *ctx; /* 每个模块具体配置的模块上下文 */
     ngx_uint_t            module_type; /* 模块类型 */
     ngx_uint_t            cmd_type; /* 命令类型 */
 

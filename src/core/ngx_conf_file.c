@@ -405,17 +405,20 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             if (cmd->type & NGX_DIRECT_CONF) { /* 表示开始解析conf,在根conf中，该标志一般与NGX_MAIN_CONF在一起（包含二级模块除外），指针需要指向conf结构（即将进入main_conf） */
                 conf = ((void **) cf->ctx)[ngx_modules[i]->index]; /* 这里直接取得core conf 指针 */
 
-            } else if (cmd->type & NGX_MAIN_CONF) { /* 当前在main_conf中，即将进入二级配置中 */
+            } else if (cmd->type & NGX_MAIN_CONF) { /* 当前在main_conf中，即将进入二级配置中(如果能到这里说明没有direct_conf，表示有二级模块) */
                 conf = &(((void **) cf->ctx)[ngx_modules[i]->index]); /* 取得保存conf指针的地址 */
 
             } else if (cf->ctx) { /* 二级配置模块中 */
+                /* 获取二级模块上下文 */
                 confp = *(void **) ((char *) cf->ctx + cmd->conf);
 
+                /* 取出对应的conf */
                 if (confp) {
                     conf = confp[ngx_modules[i]->ctx_index];
                 }
             }
 
+            /* 调用回调函数 */
             rv = cmd->set(cf, cmd, conf);
 
             if (rv == NGX_CONF_OK) {
