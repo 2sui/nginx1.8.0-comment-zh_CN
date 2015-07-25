@@ -85,17 +85,18 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ngx_core_conf_t   *ccf;
 
     sigemptyset(&set);
-    sigaddset(&set, SIGCHLD);
-    sigaddset(&set, SIGALRM);
-    sigaddset(&set, SIGIO);
-    sigaddset(&set, SIGINT);
-    sigaddset(&set, ngx_signal_value(NGX_RECONFIGURE_SIGNAL));
-    sigaddset(&set, ngx_signal_value(NGX_REOPEN_SIGNAL));
-    sigaddset(&set, ngx_signal_value(NGX_NOACCEPT_SIGNAL));
-    sigaddset(&set, ngx_signal_value(NGX_TERMINATE_SIGNAL));
-    sigaddset(&set, ngx_signal_value(NGX_SHUTDOWN_SIGNAL));
-    sigaddset(&set, ngx_signal_value(NGX_CHANGEBIN_SIGNAL));
+    sigaddset(&set, SIGCHLD); /* 子进程退出信号 */
+    sigaddset(&set, SIGALRM); /* 定时信号 */
+    sigaddset(&set, SIGIO);  /* io事件信号 */
+    sigaddset(&set, SIGINT); /* 中断信号 */
+    sigaddset(&set, ngx_signal_value(NGX_RECONFIGURE_SIGNAL)); /* SIGHUP */
+    sigaddset(&set, ngx_signal_value(NGX_REOPEN_SIGNAL));      /* SIGUSR1 */
+    sigaddset(&set, ngx_signal_value(NGX_NOACCEPT_SIGNAL));    /* SIGWINCH */
+    sigaddset(&set, ngx_signal_value(NGX_TERMINATE_SIGNAL));   /* SIGTERM */
+    sigaddset(&set, ngx_signal_value(NGX_SHUTDOWN_SIGNAL));    /* SIGQUIT */
+    sigaddset(&set, ngx_signal_value(NGX_CHANGEBIN_SIGNAL));   /* SIGUSR2 */
 
+    /* 阻塞信号 */
     if (sigprocmask(SIG_BLOCK, &set, NULL) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       "sigprocmask() failed");
@@ -122,13 +123,16 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
         p = ngx_cpystrn(p, (u_char *) ngx_argv[i], size);
     }
 
+    /* 将当前进程名替换 */
     ngx_setproctitle(title);
 
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+    /* 启动 worker 进程 */
     ngx_start_worker_processes(cycle, ccf->worker_processes,
                                NGX_PROCESS_RESPAWN);
+    /* 启动 cache manager 进程 */
     ngx_start_cache_manager_processes(cycle, 0);
 
     ngx_new_binary = 0;
@@ -340,7 +344,7 @@ ngx_single_process_cycle(ngx_cycle_t *cycle)
     }
 }
 
-
+/* 启动 worker 进程 */
 static void
 ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
 {
@@ -353,6 +357,7 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
 
     ch.command = NGX_CMD_OPEN_CHANNEL;
 
+    /* 创建 n 个 worker 进程 */
     for (i = 0; i < n; i++) {
 
         ngx_spawn_process(cycle, ngx_worker_process_cycle,
@@ -362,11 +367,12 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
         ch.slot = ngx_process_slot;
         ch.fd = ngx_processes[ngx_process_slot].channel[0];
 
+        /* 传递进程间通信管道 */
         ngx_pass_open_channel(cycle, &ch);
     }
 }
 
-
+/* 启动 cache manager 进程 */
 static void
 ngx_start_cache_manager_processes(ngx_cycle_t *cycle, ngx_uint_t respawn)
 {

@@ -51,7 +51,14 @@
 
 #if !(NGX_WIN32)
 
-#define ngx_signal_helper(n)     SIG##n
+#define ngx_signal_helper(n)     SIG##n /* 将 SIG 与 n宏定义变量拼接 */
+/*
+ * 由于 # 、 ## 等宏的宏定义变量不会被展开，所以需要增加一层，如先将
+ * ngx_signal_value(NGX_SHUTDOWN_SIGNAL)会先将NGX_SHUTDOWN_SIGNAL扩展成QUIT，再讲QUIT
+ * 传进ngx_signal_helper()中，即 将 SIG 与 QUIT 拼接。
+ * 如果直接调用ngx_signal_helper(NGX_SHUTDOWN_SIGNAL)，由于宏参数不被展开，就成了SIGNGX_SHUTDOWN_SIGNAL .
+ * (附：在展开当前宏函数时，如果形参有#或##则不进行宏参数的展开，否则先展开宏参数，再展开当前宏。)
+ */
 #define ngx_signal_value(n)      ngx_signal_helper(n)
 
 #define ngx_random               random

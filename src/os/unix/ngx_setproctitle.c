@@ -98,11 +98,14 @@ ngx_setproctitle(char *title)
 
 #endif
 
+    /* 将main函数中 argv[1] 指向 NULL */
     ngx_os_argv[1] = NULL;
 
+    /* 拷贝新进程名到argv[0] ，长度为argv数组所有指向空间的总长度 */
     p = ngx_cpystrn((u_char *) ngx_os_argv[0], (u_char *) "nginx: ",
                     ngx_os_argv_last - ngx_os_argv[0]);
 
+    /* 合起来就是 nginx: title */
     p = ngx_cpystrn(p, (u_char *) title, ngx_os_argv_last - (char *) p);
 
 #if (NGX_SOLARIS)
@@ -135,6 +138,7 @@ ngx_setproctitle(char *title)
 
 #endif
 
+    /* 进程名后面还有剩余空间，则将剩余空间清 0 */
     if (ngx_os_argv_last - (char *) p) {
         ngx_memset(p, NGX_SETPROCTITLE_PAD, ngx_os_argv_last - (char *) p);
     }
