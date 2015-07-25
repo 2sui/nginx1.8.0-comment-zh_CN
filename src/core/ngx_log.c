@@ -462,6 +462,7 @@ ngx_log_redirect_stderr(ngx_cycle_t *cycle)
     /* file log always exists when we are called */
     fd = ngx_log_get_file_log(cycle->log)->file->fd;
 
+    /* 把标准出错重定向到日志文件 */
     if (fd != ngx_stderr) {
         if (ngx_set_stderr(fd) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,

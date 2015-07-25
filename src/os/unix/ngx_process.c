@@ -615,6 +615,7 @@ ngx_os_signal_process(ngx_cycle_t *cycle, char *name, ngx_int_t pid)
 {
     ngx_signal_t  *sig;
 
+    /* 一次与signal中的信号名对比， 符合就发送对应的信号到pid进程 */
     for (sig = signals; sig->signo != 0; sig++) {
         if (ngx_strcmp(name, sig->name) == 0) {
             if (kill(pid, sig->signo) != -1) {

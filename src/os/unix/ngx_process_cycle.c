@@ -68,6 +68,7 @@ static ngx_log_t        ngx_exit_log;
 static ngx_open_file_t  ngx_exit_log_file;
 
 
+/* master worker */
 void
 ngx_master_process_cycle(ngx_cycle_t *cycle)
 {

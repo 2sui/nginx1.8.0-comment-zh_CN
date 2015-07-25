@@ -380,7 +380,7 @@ main(int argc, char *const *argv)
     }
 
     /*
-     * 初始化ngx_cycle_t并继承旧的ngx_cycle_t，解析配置文件，加载模块，打开监听端口，初始化进程间通信方式等
+     * 初始化ngx_cycle_t并继承旧的ngx_cycle_t，解析配置文件，加载模块，打开监听端口，初始化进程间通信方式等（关键部分）
     */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
@@ -402,11 +402,12 @@ main(int argc, char *const *argv)
         return 0;
     }
 
-    /* ngx_signal 在 ngx_get_option() 中设置 */
+    /* ngx_signal 在 ngx_get_option() 中设置, -s 参数，向进程发信号 */
     if (ngx_signal) {
         return ngx_signal_process(cycle, ngx_signal);
     }
 
+    /* 记录系统版本，编译信息等 */
     ngx_os_status(cycle->log);
 
     ngx_cycle = cycle;
@@ -438,10 +439,12 @@ main(int argc, char *const *argv)
 
 #endif
 
+    /* 创建pid文件 */
     if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
         return 1;
     }
 
+    /* 重定向标准出错到日志文件 */
     if (ngx_log_redirect_stderr(cycle) != NGX_OK) {
         return 1;
     }
@@ -455,9 +458,11 @@ main(int argc, char *const *argv)
 
     ngx_use_stderr = 0;
 
+    /* 进入单进程模式 */
     if (ngx_process == NGX_PROCESS_SINGLE) {
         ngx_single_process_cycle(cycle);
 
+        /* master worker 模式 */
     } else {
         ngx_master_process_cycle(cycle);
     }

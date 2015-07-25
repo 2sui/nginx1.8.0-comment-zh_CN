@@ -320,6 +320,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 }
 
 
+/* 打开需要监听的套接字socket setsockopt bind listen... */
 ngx_int_t
 ngx_open_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -351,6 +352,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 continue;
             }
 
+            /* 已打开的套接字（来自继承的）不用再打开 */
             if (ls[i].fd != (ngx_socket_t) -1) {
                 continue;
             }
@@ -372,6 +374,11 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 return NGX_ERROR;
             }
 
+            /*
+             * 设置socket为SO_REUSEADDR（1.用于对同一ip地址重复打开监听，
+             * 如服务器平滑升级时，需要关闭master然后重启master的过程，worker继续运行，如果没有该 参数可能导致bind失败；
+             * 2.用于绑定同一端口不同地址的socket）
+             */
             if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
                            (const void *) &reuseaddr, sizeof(int))
                 == -1)
@@ -514,7 +521,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/*  设置相关socket选项 */
 void
 ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -531,6 +538,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 
         ls[i].log = *ls[i].logp;
 
+        /* SO_RECVBUF设置内核接受缓冲大小 */
         if (ls[i].rcvbuf != -1) {
             if (setsockopt(ls[i].fd, SOL_SOCKET, SO_RCVBUF,
                            (const void *) &ls[i].rcvbuf, sizeof(int))
@@ -542,6 +550,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
             }
         }
 
+        /* 设置发送缓冲大小 */
         if (ls[i].sndbuf != -1) {
             if (setsockopt(ls[i].fd, SOL_SOCKET, SO_SNDBUF,
                            (const void *) &ls[i].sndbuf, sizeof(int))
@@ -553,6 +562,8 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
             }
         }
 
+
+        /* 设置SO_KEEPALIVE,可用于探测对端是否关闭（http的keep-alive？） */
         if (ls[i].keepalive) {
             value = (ls[i].keepalive == 1) ? 1 : 0;
 
@@ -657,7 +668,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 #endif
 
         if (ls[i].listen) {
-
+             /* 如果已监听，则通过listen重新设置backlog */
             /* change backlog via listen() */
 
             if (listen(ls[i].fd, ls[i].backlog) == -1) {

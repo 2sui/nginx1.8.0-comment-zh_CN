@@ -380,7 +380,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         goto failed;
     }
 
-    /* 建立需要操作的目录 */
+    /* 建立需要操作的目录（client_body_temp，proxy_temp，fastcgi_temp，uwsgi_temp，scgi_temp） */
     if (ngx_create_paths(cycle, ccf->user) != NGX_OK) {
         goto failed;
     }
@@ -543,10 +543,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     /* handle the listening sockets */
 
     /* 处理监听套接字 */
+    /* 处理继承来的监听套接字 */
     if (old_cycle->listening.nelts) {
         ls = old_cycle->listening.elts;
         for (i = 0; i < old_cycle->listening.nelts; i++) {
-            ls[i].remain = 0;
+            ls[i].remain = 0; /* 复位remain */
         }
 
         nls = cycle->listening.elts;
@@ -557,13 +558,14 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                     continue;
                 }
 
+                /* 找到继承的监听地址，将继承来的句柄等赋值给新的 */
                 if (ngx_cmp_sockaddr(nls[n].sockaddr, nls[n].socklen,
                                      ls[i].sockaddr, ls[i].socklen, 1)
                     == NGX_OK)
                 {
                     nls[n].fd = ls[i].fd;
                     nls[n].previous = &ls[i];
-                    ls[i].remain = 1;
+                    ls[i].remain = 1;  /* 继承的不需要关闭 */
 
                     if (ls[i].backlog != nls[n].backlog) {
                         nls[n].listen = 1;
@@ -608,6 +610,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                 }
             }
 
+            /* 如果不是来自继承的，则 open 置 1 */
             if (nls[n].fd == (ngx_socket_t) -1) {
                 nls[n].open = 1;
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined SO_ACCEPTFILTER)
@@ -623,6 +626,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             }
         }
 
+        /* 如果没有需要处理的继承套接字，则 open 直接置 1 */
     } else {
         ls = cycle->listening.elts;
         for (i = 0; i < cycle->listening.nelts; i++) {
@@ -640,11 +644,13 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
     }
 
+    /* 打开需要监听的套接字 */
     if (ngx_open_listening_sockets(cycle) != NGX_OK) {
         goto failed;
     }
 
     if (!ngx_test_config) {
+        /* 设置相关socket选项 */
         ngx_configure_listening_sockets(cycle);
     }
 
@@ -657,6 +663,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     pool->log = cycle->log;
 
+    /* 调用各模块的init_module回调 */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->init_module) {
             if (ngx_modules[i]->init_module(cycle) != NGX_OK) {
@@ -674,6 +681,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     opart = &old_cycle->shared_memory.part;
     oshm_zone = opart->elts;
 
+    /* 释放旧的master中没有被继承的共享内存 */
     for (i = 0; /* void */ ; i++) {
 
         if (i >= opart->nelts) {
@@ -721,6 +729,7 @@ old_shm_zone_done:
 
     /* close the unnecessary listening sockets */
 
+    /* 关闭旧的master中没有被继承的socket */
     ls = old_cycle->listening.elts;
     for (i = 0; i < old_cycle->listening.nelts; i++) {
 
@@ -756,6 +765,7 @@ old_shm_zone_done:
 
     /* close the unnecessary open files */
 
+    /* 关闭旧的mastr中没有被继承的文件描述符 */
     part = &old_cycle->open_files.part;
     file = part->elts;
 
@@ -781,8 +791,10 @@ old_shm_zone_done:
         }
     }
 
+    /* 销毁conf中的临时内存池 */
     ngx_destroy_pool(conf.temp_pool);
 
+    /* 如果NGX_PROCESS_MASTER模式则初始化已完成 */
     if (ngx_process == NGX_PROCESS_MASTER || ngx_is_init_cycle(old_cycle)) {
 
         /*
@@ -846,6 +858,7 @@ old_shm_zone_done:
 
 failed:
 
+    /* 出错后的控制 */
     if (!ngx_is_init_cycle(old_cycle)) {
         old_ccf = (ngx_core_conf_t *) ngx_get_conf(old_cycle->conf_ctx,
                                                    ngx_core_module);
@@ -856,6 +869,7 @@ failed:
 
     /* rollback the new cycle configuration */
 
+    /* 关闭打开的文件描述符 */
     part = &cycle->open_files.part;
     file = part->elts;
 
@@ -881,11 +895,13 @@ failed:
         }
     }
 
+    /* 回收conf */
     if (ngx_test_config) {
         ngx_destroy_cycle_pools(&conf);
         return NULL;
     }
 
+    /* 关闭打开的套接字 */
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
         if (ls[i].fd == (ngx_socket_t) -1 || !ls[i].open) {
@@ -961,7 +977,7 @@ ngx_init_zone_pool(ngx_cycle_t *cycle, ngx_shm_zone_t *zn)
     return NGX_OK;
 }
 
-
+/* 创建pid文件 */
 ngx_int_t
 ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
 {
@@ -1024,6 +1040,7 @@ ngx_delete_pidfile(ngx_cycle_t *cycle)
 }
 
 
+/* 打开pid文件读取pid并发送信号 */
 ngx_int_t
 ngx_signal_process(ngx_cycle_t *cycle, char *sig)
 {
@@ -1042,6 +1059,7 @@ ngx_signal_process(ngx_cycle_t *cycle, char *sig)
     file.name = ccf->pid;
     file.log = cycle->log;
 
+    /* 打开pid文件 */
     file.fd = ngx_open_file(file.name.data, NGX_FILE_RDONLY,
                             NGX_FILE_OPEN, NGX_FILE_DEFAULT_ACCESS);
 
@@ -1051,8 +1069,10 @@ ngx_signal_process(ngx_cycle_t *cycle, char *sig)
         return 1;
     }
 
+    /* 读取pid */
     n = ngx_read_file(&file, buf, NGX_INT64_LEN + 2, 0);
 
+    /* 关闭文件 */
     if (ngx_close_file(file.fd) == NGX_FILE_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       ngx_close_file_n " \"%s\" failed", file.name.data);
@@ -1073,6 +1093,7 @@ ngx_signal_process(ngx_cycle_t *cycle, char *sig)
         return 1;
     }
 
+    /* 向进程发送对应的信号 */
     return ngx_os_signal_process(cycle, sig, pid);
 
 }
