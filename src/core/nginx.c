@@ -402,7 +402,7 @@ main(int argc, char *const *argv)
         return 0;
     }
 
-    /* ngx_signal 在 ngx_get_option() 中设置, -s 参数，向进程发信号 */
+    /* ngx_signal 在 ngx_get_option() 中设置, -s 参数，向nginx进程发送对应的信号 */
     if (ngx_signal) {
         return ngx_signal_process(cycle, ngx_signal);
     }

@@ -1,4 +1,4 @@
-#define NGX_CONFIGURE ""
+#define NGX_CONFIGURE " --with-mail"
 
 #ifndef NGX_COMPILER
 #define NGX_COMPILER  "gcc 4.8.3 20140911 (Red Hat 4.8.3-9) (GCC) "

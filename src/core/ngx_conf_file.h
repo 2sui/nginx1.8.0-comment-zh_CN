@@ -19,38 +19,39 @@
  *    TT        command type, i.e. HTTP "location" or "server" command
  */
 
-#define NGX_CONF_NOARGS      0x00000001
-#define NGX_CONF_TAKE1       0x00000002
-#define NGX_CONF_TAKE2       0x00000004
-#define NGX_CONF_TAKE3       0x00000008
-#define NGX_CONF_TAKE4       0x00000010
-#define NGX_CONF_TAKE5       0x00000020
-#define NGX_CONF_TAKE6       0x00000040
-#define NGX_CONF_TAKE7       0x00000080
+#define NGX_CONF_NOARGS      0x00000001  /* 配置指令不接受参数 */
+#define NGX_CONF_TAKE1       0x00000002  /* 接受一个参数 */
+#define NGX_CONF_TAKE2       0x00000004  /* 接受两个参数 */
+#define NGX_CONF_TAKE3       0x00000008  /* 接受三个参数 */
+#define NGX_CONF_TAKE4       0x00000010  /* 接受四个参数 */
+#define NGX_CONF_TAKE5       0x00000020  /* 接受五个参数 */
+#define NGX_CONF_TAKE6       0x00000040  /* 接受六个参数 */
+#define NGX_CONF_TAKE7       0x00000080  /* 接受七个参数 */
 
-#define NGX_CONF_MAX_ARGS    8
+#define NGX_CONF_MAX_ARGS    8 /* 每条指令最大的指令数量 */
 
-#define NGX_CONF_TAKE12      (NGX_CONF_TAKE1|NGX_CONF_TAKE2)
-#define NGX_CONF_TAKE13      (NGX_CONF_TAKE1|NGX_CONF_TAKE3)
+/* 参数组合 */
+#define NGX_CONF_TAKE12      (NGX_CONF_TAKE1|NGX_CONF_TAKE2) /* 接受一个或两个参数 */
+#define NGX_CONF_TAKE13      (NGX_CONF_TAKE1|NGX_CONF_TAKE3) /* 接受一个或三个参数 */
 
-#define NGX_CONF_TAKE23      (NGX_CONF_TAKE2|NGX_CONF_TAKE3)
+#define NGX_CONF_TAKE23      (NGX_CONF_TAKE2|NGX_CONF_TAKE3) /* 接受两个或三个参数 */
 
-#define NGX_CONF_TAKE123     (NGX_CONF_TAKE1|NGX_CONF_TAKE2|NGX_CONF_TAKE3)
+#define NGX_CONF_TAKE123     (NGX_CONF_TAKE1|NGX_CONF_TAKE2|NGX_CONF_TAKE3) /* 接受一个或两个或三个或四个参数 */
 #define NGX_CONF_TAKE1234    (NGX_CONF_TAKE1|NGX_CONF_TAKE2|NGX_CONF_TAKE3   \
                               |NGX_CONF_TAKE4)
 
 #define NGX_CONF_ARGS_NUMBER 0x000000ff
-#define NGX_CONF_BLOCK       0x00000100
-#define NGX_CONF_FLAG        0x00000200
-#define NGX_CONF_ANY         0x00000400
-#define NGX_CONF_1MORE       0x00000800
-#define NGX_CONF_2MORE       0x00001000
+#define NGX_CONF_BLOCK       0x00000100  /* 指令接受块配置类型 */
+#define NGX_CONF_FLAG        0x00000200   /* 指令接受标记类型参数，on off（会被转为bool） */
+#define NGX_CONF_ANY         0x00000400  /* 指令接受任意参数，如on off等 */
+#define NGX_CONF_1MORE       0x00000800 /* 指令接受至少一个参数 */
+#define NGX_CONF_2MORE       0x00001000 /* 指令接受至少两个参数 */
 #define NGX_CONF_MULTI       0x00000000  /* compatibility */
 
-#define NGX_DIRECT_CONF      0x00010000
+#define NGX_DIRECT_CONF      0x00010000 /* 配置参数位于根配置中，如 */
 
-#define NGX_MAIN_CONF        0x01000000
-#define NGX_ANY_CONF         0x0F000000
+#define NGX_MAIN_CONF        0x01000000 /* 主要模块配置，如http mail error_log等 */
+#define NGX_ANY_CONF         0x0F000000 /* 配置参数可出现在任意配置级别中 */
 
 
 
@@ -76,9 +77,11 @@
 
 
 struct ngx_command_s {
+    /* 配置指令名称 */
     ngx_str_t             name;
+    /* 该配置类型（NGX_CONF_XXX） */
     ngx_uint_t            type;
-    /* 指令回调函数 */
+    /* 指令处理回调函数 */
     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
     ngx_uint_t            conf;
     ngx_uint_t            offset;
@@ -203,7 +206,7 @@ typedef char *(*ngx_conf_handler_pt)(ngx_conf_t *cf,
 
 struct ngx_conf_s {
     char                 *name; /* 配置名 */
-    ngx_array_t          *args; /* 参数表 */
+    ngx_array_t          *args; /* 参数表,第一项为解析的配置指令本身，第二项为该配置指令的第一个参数，以此类推 */
 
     ngx_cycle_t          *cycle; /* 对应cycle */
     ngx_pool_t           *pool; /* 内存池 */
@@ -364,19 +367,32 @@ ngx_open_file_t *ngx_conf_open_file(ngx_cycle_t *cycle, ngx_str_t *name);
 void ngx_cdecl ngx_conf_log_error(ngx_uint_t level, ngx_conf_t *cf,
     ngx_err_t err, const char *fmt, ...);
 
+/* 内置的指令处理回调函数 */
 
+/* 读取 NGX_CONF_FLAG 类型的参数 */
 char *ngx_conf_set_flag_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取字符串类型的参数 */
 char *ngx_conf_set_str_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取字符串数组类型的参数 */
 char *ngx_conf_set_str_array_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+/* 读取 键值对类型的参数 */
 char *ngx_conf_set_keyval_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取数值（整型）类型的参数 */
 char *ngx_conf_set_num_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取 size_t 类型的参数 */
 char *ngx_conf_set_size_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取 off_t 类型的参数 */
 char *ngx_conf_set_off_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取毫秒值类型参数 */
 char *ngx_conf_set_msec_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取秒值类型的参数 */
 char *ngx_conf_set_sec_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取 buf 类型参数，该类型氛围两部分，buf 的数量和 buf 的大小，如： output_buffers 1 128k; */
 char *ngx_conf_set_bufs_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取枚举类型参数，转成 ngx_uint_t类型 */
 char *ngx_conf_set_enum_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* 读取 bit 类型参数，值将以bit类型存储 */
 char *ngx_conf_set_bitmask_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 

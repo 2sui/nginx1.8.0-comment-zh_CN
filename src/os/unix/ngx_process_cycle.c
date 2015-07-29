@@ -84,6 +84,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ngx_listening_t   *ls;
     ngx_core_conf_t   *ccf;
 
+    /* 设置阻塞信号 */
     sigemptyset(&set);
     sigaddset(&set, SIGCHLD); /* 子进程退出信号 */
     sigaddset(&set, SIGALRM); /* 定时信号 */
