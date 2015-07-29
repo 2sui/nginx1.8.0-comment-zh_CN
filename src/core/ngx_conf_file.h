@@ -19,6 +19,7 @@
  *    TT        command type, i.e. HTTP "location" or "server" command
  */
 
+/* 配置项参数属性 NGX_CONF_XXX */
 #define NGX_CONF_NOARGS      0x00000001  /* 配置指令不接受参数 */
 #define NGX_CONF_TAKE1       0x00000002  /* 接受一个参数 */
 #define NGX_CONF_TAKE2       0x00000004  /* 接受两个参数 */
@@ -48,6 +49,7 @@
 #define NGX_CONF_2MORE       0x00001000 /* 指令接受至少两个参数 */
 #define NGX_CONF_MULTI       0x00000000  /* compatibility */
 
+/* 配置项位置层级 NGX_XXX_CONF */
 #define NGX_DIRECT_CONF      0x00010000 /* 配置参数位于根配置中，如 */
 
 #define NGX_MAIN_CONF        0x01000000 /* 主要模块配置，如http mail error_log等 */
@@ -75,7 +77,7 @@
 
 #define NGX_MAX_CONF_ERRSTR  1024
 
-
+/* 保存配置指令对应的处理方法 */
 struct ngx_command_s {
     /* 配置指令名称 */
     ngx_str_t             name;
@@ -83,6 +85,12 @@ struct ngx_command_s {
     ngx_uint_t            type;
     /* 指令处理回调函数 */
     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+    /* 该字段被NGX_HTTP_MODULE类型模块所用，该字段指定当前配置项存储的内存位置。
+     * 实际上是使用哪个内存池的问题。因为http模块对所有http模块所要保存的配置信息，
+     * 划分了main, server和location三个地方进行存储，每个地方都有一个内存池用来分配存储这些信息的内存。
+     * 这里可能的值为 NGX_HTTP_MAIN_CONF_OFFSET、NGX_HTTP_SRV_CONF_OFFSET或NGX_HTTP_LOC_CONF_OFFSET。
+     * 当然也可以直接置为0，就是NGX_HTTP_MAIN_CONF_OFFSET。
+     */
     ngx_uint_t            conf;
     ngx_uint_t            offset;
     void                 *post;
@@ -101,45 +109,27 @@ struct ngx_open_file_s {
 
 /*
  * 初始化ngx_module_t的前7个字段（ctx_index,index,spare0~spare3,version）
- * 如：
- *  ngx_core_module，
- *  ngx_conf_module,
- *  ngx_errlog_module,
- *  ngx_regex_module，
- *  ngx_thread_pool_module，
- *  ngx_aio_module，
- *  ngx_devpoll_module，
- *  ngx_epoll_module，
- *  ngx_eventport_module，
- *  ngx_kqueue_module，
- *  ngx_poll_module，
- *  ngx_rtsig_module，
- *  ngx_select_module，
- *  ngx_events_module，
- *  ngx_event_core_module，
- *  ngx_openssl_module，
- *  ngx_http_access_module，
- *  ngx_http_addition_filter_module，
- *  ngx_http_auth_basic_module，
- *  ......
  */
 #define NGX_MODULE_V1          0, 0, 0, 0, 0, 0, 1
 /* 初始化ngx_module_t的最后8个字段（spare_hook0～spare_hook7） */
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
 /*
- * 对于各类模块而言，每类模块都由一个ngx_modules_t维护，其中各类模块的核心模块中的ctx字段都会指向
- * 一个对应该类模块上下文的结构ngx_core_module_t，这个结构中由创建（create_conf）和初始化（init_conf）该类
- * 模块各项配置的回调函数进行详细模块的初始化工作.
- * 所以ngx_cycle_t的conf_ctx字段直接指向ngx_modules_t的数组，每个数组中的ctx指向一个n对应的上下文模块。
+ * 每个模块都由一个ngx_modules_t维护，其中会保存该模块索引、该类模块索引、模块类型、模块命令集、模块上下文等。
+ * 其中对于ctx字段（模块上下文）来讲，不同类型的模块上下文不同，如当type字段为NGX_CORE_MODULE时，这类模块有
+ * ngx_core_module（nginx主模块）、ngx_conf_module（nginx配置模块）、ngx_events_module（event类管理模块）、
+ * ngx_http_module（http类管理模块）、ngx_mail_module（mail类管理模块），即所有各类模块的管理模块或主模块的
+ * 上下文都是ngx_core_module_t类型（ngx_conf_module除外，它没有模块上下文），然后各类模块的具体子模块的上下文又指
+ * 向各自定义的模块类型（如ngx_http_core_module子模块的上下文为ngx_http_module_t类型而不是ngx_core_module_t类型）。
  */
 struct ngx_module_s {
     /*
      * 对于一类模块（由下面的type成员决定类别）而言，ctx_index表示当前模块在这类模块中的索引号。
      * 这个成员常常是由管理这类模块的一个nginx核心模块设置的，对于所有的HTTP模块而言，ctx_index
-     * 是由核心模块ngx_http_module设置的。
+     * 是由核心模块ngx_http_module设置的。该字段在各类模块的ngx_xxx_block()函数中初始化。
      */
     ngx_uint_t            ctx_index;
+
     /* 表示这一类模块在各类模块中的索引号 */
     ngx_uint_t            index;
 
@@ -147,6 +137,7 @@ struct ngx_module_s {
     ngx_uint_t            spare1;
     ngx_uint_t            spare2;
     ngx_uint_t            spare3;
+
     /* 模块版本 */
     ngx_uint_t            version;
 
@@ -155,13 +146,18 @@ struct ngx_module_s {
      * 比如，在HTTP模块中，ctx需要指向ngx_http_module_t结构体。
      */
     void                 *ctx;
+
     /* 模块命令集，将处理nginx.conf中的配置项 */
     ngx_command_t        *commands;
+
     /* 标示该模块的类型，和ctx是紧密相关的。它的取值范围是以下几种:
-     * NGX_HTTP_MODULE,NGX_CORE_MODULE,NGX_CONF_MODULE,
-     * NGX_EVENT_MODULE,NGX_MAIL_MODULE
+     * NGX_CORE_MODULE,
+     * NGX_CONF_MODULE,
+     * NGX_EVENT_MODULE,
+     * NGX_HTTP_MODULE,
+     * NGX_MAIL_MODULE
      */
-    ngx_uint_t            type;  /* 模块类型 */
+    ngx_uint_t            type;
 
     /* nginx运行流程中对应的各过程 */
     ngx_int_t           (*init_master)(ngx_log_t *log); /* 初始化master */
@@ -204,6 +200,10 @@ typedef char *(*ngx_conf_handler_pt)(ngx_conf_t *cf,
     ngx_command_t *dummy, void *conf);
 
 
+/*
+ * 保存从配置文件中读取的配置指令。
+ * 注意ngx_conf_module模块只负责处理 include 一条指令。
+*/
 struct ngx_conf_s {
     char                 *name; /* 配置名 */
     ngx_array_t          *args; /* 参数表,第一项为解析的配置指令本身，第二项为该配置指令的第一个参数，以此类推 */

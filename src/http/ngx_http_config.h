@@ -22,8 +22,8 @@ typedef struct {
 
 
 typedef struct {
-    ngx_int_t   (*preconfiguration)(ngx_conf_t *cf);
-    ngx_int_t   (*postconfiguration)(ngx_conf_t *cf);
+    ngx_int_t   (*preconfiguration)(ngx_conf_t *cf); /* 在创建和读取该模块的配置信息之前被调用。*/
+    ngx_int_t   (*postconfiguration)(ngx_conf_t *cf); /* 在创建和读取该模块的配置信息之后被调用。*/
 
     void       *(*create_main_conf)(ngx_conf_t *cf);
     char       *(*init_main_conf)(ngx_conf_t *cf, void *conf);
