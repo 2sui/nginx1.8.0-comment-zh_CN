@@ -179,7 +179,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             live = ngx_reap_children(cycle);
         }
 
-        if (!live && (ngx_terminate || ngx_quit)) {
+        if (!live && (ngx_terminate || ngx_quit)) { /* -s stop -s quit */
             ngx_master_process_exit(cycle);
         }
 
@@ -222,9 +222,11 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             continue;
         }
 
+        /* 重新加载配置 */
         if (ngx_reconfigure) {
             ngx_reconfigure = 0;
 
+            /* 重启子进程 */
             if (ngx_new_binary) {
                 ngx_start_worker_processes(cycle, ccf->worker_processes,
                                            NGX_PROCESS_RESPAWN);
@@ -236,6 +238,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reconfiguring");
 
+            /* 重新初始化cycle */
             cycle = ngx_init_cycle(cycle);
             if (cycle == NULL) {
                 cycle = (ngx_cycle_t *) ngx_cycle;
@@ -243,8 +246,10 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             }
 
             ngx_cycle = cycle;
+            /* 配置上下文 */
             ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx,
                                                    ngx_core_module);
+            /* 重启 work 进程 */
             ngx_start_worker_processes(cycle, ccf->worker_processes,
                                        NGX_PROCESS_JUST_RESPAWN);
             ngx_start_cache_manager_processes(cycle, 1);
@@ -361,6 +366,7 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
     /* 创建 n 个 worker 进程 */
     for (i = 0; i < n; i++) {
 
+        /* 传入 data 为当前进程索引 */
         ngx_spawn_process(cycle, ngx_worker_process_cycle,
                           (void *) (intptr_t) i, "worker process", type);
 
@@ -729,10 +735,11 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
     exit(0);
 }
 
-
+/* worker 进程循环 */
 static void
 ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 {
+    /* 当前进程索引 */
     ngx_int_t worker = (intptr_t) data;
 
     ngx_uint_t         i;
@@ -740,12 +747,15 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
     ngx_process = NGX_PROCESS_WORKER;
 
+    /* 初始化 worker 线程 */
     ngx_worker_process_init(cycle, worker);
 
+    /* 设置进程名 */
     ngx_setproctitle("worker process");
 
     for ( ;; ) {
 
+        /* 退出信号 */
         if (ngx_exiting) {
 
             c = cycle->connections;
@@ -772,6 +782,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "worker cycle");
 
+        /* 进入事件循环 */
         ngx_process_events_and_timers(cycle);
 
         if (ngx_terminate) {
@@ -812,6 +823,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     ngx_core_conf_t  *ccf;
     ngx_listening_t  *ls;
 
+    /* 设置环境 */
     if (ngx_set_environment(cycle, NULL) == NULL) {
         /* fatal */
         exit(2);
@@ -861,6 +873,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     }
 #endif
 
+    /* 如果是 root，则切换用户 */
     if (geteuid() == 0) {
         if (setgid(ccf->group) == -1) {
             ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_errno,
@@ -883,6 +896,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    /* 为每个进程设置 cpu 亲和性 */
     if (worker >= 0) {
         cpu_affinity = ngx_get_cpu_affinity(worker);
 
@@ -902,6 +916,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
 
 #endif
 
+    /* 修改工作目录 */
     if (ccf->working_directory.len) {
         if (chdir((char *) ccf->working_directory.data) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -911,6 +926,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    /* 设置信号屏蔽 */
     sigemptyset(&set);
 
     if (sigprocmask(SIG_SETMASK, &set, NULL) == -1) {
@@ -929,6 +945,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         ls[i].previous = NULL;
     }
 
+    /* 调用 init_process */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->init_process) {
             if (ngx_modules[i]->init_process(cycle) == NGX_ERROR) {
@@ -967,6 +984,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     ngx_last_process = 0;
 #endif
 
+    /* 对管道事件添加事件处理 */
     if (ngx_add_channel_event(cycle, ngx_channel, NGX_READ_EVENT,
                               ngx_channel_handler)
         == NGX_ERROR)

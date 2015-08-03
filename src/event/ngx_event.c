@@ -197,7 +197,7 @@ ngx_module_t  ngx_event_core_module = {
     NGX_MODULE_V1_PADDING
 };
 
-
+/* worker 进程主事件循环 */
 void
 ngx_process_events_and_timers(ngx_cycle_t *cycle)
 {
@@ -221,6 +221,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 #endif
     }
 
+    /* accept 锁，当进程中维护的链接数大于该进程最大连接数的1/8时， 减小获得accept锁的概率 */
     if (ngx_use_accept_mutex) {
         if (ngx_accept_disabled > 0) {
             ngx_accept_disabled--;
