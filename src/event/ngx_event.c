@@ -221,12 +221,19 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 #endif
     }
 
-    /* accept 锁，当进程中维护的链接数大于该进程最大连接数的1/8时， 减小获得accept锁的概率 */
+    /* accept 锁，当进程中空闲连接数小于该进程最大连接数的1/8时， 减小获得accept锁的概率 */
     if (ngx_use_accept_mutex) {
+        /*
+         * ngx_accept_disabled = ngx_cycle->connection_n / 8
+         *                    - ngx_cycle->free_connection_n
+         * 所以当 ngx_accpet_disabled 大于 0 时表示空闲连接数已小于
+         * 总连接数的 1/8， 此时不再获取锁
+        */
         if (ngx_accept_disabled > 0) {
             ngx_accept_disabled--;
 
         } else {
+            /* 获取 accept 锁 */
             if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
                 return;
             }
@@ -253,8 +260,10 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "timer delta: %M", delta);
 
+    /* 处理 accept 事件 */
     ngx_event_process_posted(cycle, &ngx_posted_accept_events);
 
+    /* 释放 accept 锁 */
     if (ngx_accept_mutex_held) {
         ngx_shmtx_unlock(&ngx_accept_mutex);
     }
@@ -263,6 +272,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         ngx_event_expire_timers();
     }
 
+    /* 等 accept 事件处理完成再处理读写事件 */
     ngx_event_process_posted(cycle, &ngx_posted_events);
 }
 

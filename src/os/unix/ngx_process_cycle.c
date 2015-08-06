@@ -172,17 +172,20 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
         ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "wake up, sigio %i", sigio);
 
+        /* 管理子进程 */
         if (ngx_reap) {
             ngx_reap = 0;
             ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "reap children");
 
+            /* 在这里设置了 live 标志 */
             live = ngx_reap_children(cycle);
         }
 
-        if (!live && (ngx_terminate || ngx_quit)) { /* -s stop -s quit */
+        if (!live && (ngx_terminate || ngx_quit)) { /* TERM 、INT or QUIT */
             ngx_master_process_exit(cycle);
         }
 
+        /* TERM 、INT */
         if (ngx_terminate) {
             if (delay == 0) {
                 delay = 50;
@@ -195,6 +198,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
             sigio = ccf->worker_processes + 2 /* cache processes */;
 
+            /* 超时大于 1000 直接 kill，否则发送 TERM */
             if (delay > 1000) {
                 ngx_signal_worker_processes(cycle, SIGKILL);
             } else {
@@ -205,7 +209,9 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             continue;
         }
 
+        /* QUIT */
         if (ngx_quit) {
+            /* 向所有子进程发送信号并设置对应的标志位 */
             ngx_signal_worker_processes(cycle,
                                         ngx_signal_value(NGX_SHUTDOWN_SIGNAL));
 
@@ -226,7 +232,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
         if (ngx_reconfigure) {
             ngx_reconfigure = 0;
 
-            /* 重启子进程 */
+            /* 增加新的子进程 */
             if (ngx_new_binary) {
                 ngx_start_worker_processes(cycle, ccf->worker_processes,
                                            NGX_PROCESS_RESPAWN);
@@ -258,6 +264,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
             ngx_msleep(100);
 
             live = 1;
+            /* 退出旧的子进程 */
             ngx_signal_worker_processes(cycle,
                                         ngx_signal_value(NGX_SHUTDOWN_SIGNAL));
         }
@@ -545,6 +552,7 @@ ngx_signal_worker_processes(ngx_cycle_t *cycle, int signo)
         ngx_log_debug2(NGX_LOG_DEBUG_CORE, cycle->log, 0,
                        "kill (%P, %d)", ngx_processes[i].pid, signo);
 
+        /* 发送对应信号 */
         if (kill(ngx_processes[i].pid, signo) == -1) {
             err = ngx_errno;
             ngx_log_error(NGX_LOG_ALERT, cycle->log, err,
@@ -565,7 +573,7 @@ ngx_signal_worker_processes(ngx_cycle_t *cycle, int signo)
     }
 }
 
-
+/* 管理子进程 */
 static ngx_uint_t
 ngx_reap_children(ngx_cycle_t *cycle)
 {
@@ -580,6 +588,8 @@ ngx_reap_children(ngx_cycle_t *cycle)
     ch.fd = -1;
 
     live = 0;
+
+    /* 如果有新进程创建获取这有进程没有退出，则 live 都会设置为 1 */
     for (i = 0; i < ngx_last_process; i++) {
 
         ngx_log_debug7(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
@@ -693,6 +703,7 @@ ngx_reap_children(ngx_cycle_t *cycle)
 }
 
 
+/* 主进程退出处理函数 */
 static void
 ngx_master_process_exit(ngx_cycle_t *cycle)
 {
@@ -708,6 +719,7 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
         }
     }
 
+    /* 关闭监听端口 */
     ngx_close_listening_sockets(cycle);
 
     /*
@@ -735,7 +747,7 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
     exit(0);
 }
 
-/* worker 进程循环 */
+/* worker 进程循环， */
 static void
 ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 {
@@ -755,7 +767,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
     for ( ;; ) {
 
-        /* 退出信号 */
+        /* 如果 ngx_exiting 位被设置则关闭 connection 退出 */
         if (ngx_exiting) {
 
             c = cycle->connections;
@@ -785,24 +797,28 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
         /* 进入事件循环 */
         ngx_process_events_and_timers(cycle);
 
+        /* TERM or INT ,直接退出 */
         if (ngx_terminate) {
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "exiting");
 
             ngx_worker_process_exit(cycle);
         }
 
+        /* QUIT，退出流程 */
         if (ngx_quit) {
             ngx_quit = 0;
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                           "gracefully shutting down");
             ngx_setproctitle("worker process is shutting down");
 
+            /* 关闭所有 socket */
             if (!ngx_exiting) {
                 ngx_close_listening_sockets(cycle);
-                ngx_exiting = 1;
+                ngx_exiting = 1; /* 设置 ngx_exiting 位 */
             }
         }
 
+        /* USR1 重新打开所有文件 */
         if (ngx_reopen) {
             ngx_reopen = 0;
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reopening logs");
@@ -1001,6 +1017,7 @@ ngx_worker_process_exit(ngx_cycle_t *cycle)
     ngx_uint_t         i;
     ngx_connection_t  *c;
 
+    /* 调用各模块的 exit_process 函数 */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->exit_process) {
             ngx_modules[i]->exit_process(cycle);

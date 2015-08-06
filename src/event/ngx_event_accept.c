@@ -370,6 +370,7 @@ ngx_event_accept(ngx_event_t *ev)
 ngx_int_t
 ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 {
+    /* 得到锁则 */
     if (ngx_shmtx_trylock(&ngx_accept_mutex)) {
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
@@ -382,6 +383,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
             return NGX_OK;
         }
 
+        /* 添加 accept 事件 */
         if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
             ngx_shmtx_unlock(&ngx_accept_mutex);
             return NGX_ERROR;
@@ -396,6 +398,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "accept mutex lock failed: %ui", ngx_accept_mutex_held);
 
+    /* 没有得到锁则删除对应 accept 事件 */
     if (ngx_accept_mutex_held) {
         if (ngx_disable_accept_events(cycle) == NGX_ERROR) {
             return NGX_ERROR;
@@ -408,6 +411,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 }
 
 
+/* 添加 accept 事件 */
 static ngx_int_t
 ngx_enable_accept_events(ngx_cycle_t *cycle)
 {
@@ -424,6 +428,7 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
             continue;
         }
 
+        /* 添加 connection */
         if (ngx_event_flags & NGX_USE_RTSIG_EVENT) {
 
             if (ngx_add_conn(c) == NGX_ERROR) {
@@ -431,6 +436,7 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
             }
 
         } else {
+            /* 在 connection 上添加事件 */
             if (ngx_add_event(c->read, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }
@@ -457,12 +463,14 @@ ngx_disable_accept_events(ngx_cycle_t *cycle)
             continue;
         }
 
+        /* 删除connection */
         if (ngx_event_flags & NGX_USE_RTSIG_EVENT) {
             if (ngx_del_conn(c, NGX_DISABLE_EVENT) == NGX_ERROR) {
                 return NGX_ERROR;
             }
 
         } else {
+            /* 删除事件 */
             if (ngx_del_event(c->read, NGX_READ_EVENT, NGX_DISABLE_EVENT)
                 == NGX_ERROR)
             {
