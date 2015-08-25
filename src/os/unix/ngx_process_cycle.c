@@ -759,7 +759,10 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
     ngx_process = NGX_PROCESS_WORKER;
 
-    /* 初始化 worker 线程 */
+    /*
+     * 初始化 worker 线程:设置系统配置,切换用户，设置cpu亲和性，屏蔽信号，
+     * 调用各模块 init_process 函数，添加进程通信事件.
+    */
     ngx_worker_process_init(cycle, worker);
 
     /* 设置进程名 */
@@ -794,7 +797,9 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "worker cycle");
 
-        /* 进入事件循环 */
+        /*
+         * 进入事件循环（point）
+         */
         ngx_process_events_and_timers(cycle);
 
         /* TERM or INT ,直接退出 */
