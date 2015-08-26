@@ -197,7 +197,9 @@ ngx_module_t  ngx_event_core_module = {
     NGX_MODULE_V1_PADDING
 };
 
-/* worker 进程主事件循环 */
+/*
+ * worker 进程主事件循环 （point）
+ */
 void
 ngx_process_events_and_timers(ngx_cycle_t *cycle)
 {
@@ -424,6 +426,9 @@ ngx_handle_write_event(ngx_event_t *wev, size_t lowat)
 }
 
 
+/*
+ * 判断event模块的conf_ctx是否存在
+*/
 static char *
 ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
 {
@@ -436,7 +441,9 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 在 ngx_init_cycle 中调用，初始化event_module.
+*/
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
 {
@@ -448,7 +455,9 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     ngx_core_conf_t     *ccf;
     ngx_event_conf_t    *ecf;
 
+    /* 获取 ngx_events_module 这类模块配置上下文 */
     cf = ngx_get_conf(cycle->conf_ctx, ngx_events_module);
+    /* 获取 ngx_event_core_module 配置上下文（在ngx_events_module 这类模块配置上下文中） */
     ecf = (*cf)[ngx_event_core_module.ctx_index];
 
     if (!ngx_test_config && ngx_process <= NGX_PROCESS_MASTER) {
@@ -456,6 +465,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
                       "using the \"%s\" event method", ecf->name);
     }
 
+    /* 获取 ngx_core_module 配置上下文 */
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
     ngx_timer_resolution = ccf->timer_resolution;
@@ -516,6 +526,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
 #endif
 
+    /* 申请 cacheline 大小的共享内存 */
     shm.size = size;
     shm.name.len = sizeof("nginx_shared_zone");
     shm.name.data = (u_char *) "nginx_shared_zone";

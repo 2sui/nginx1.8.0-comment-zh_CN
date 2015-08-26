@@ -451,12 +451,12 @@ typedef struct {
 
 
 typedef struct {
-    ngx_str_t              *name;
+    ngx_str_t              *name;  /* event 模块名 */
 
-    void                 *(*create_conf)(ngx_cycle_t *cycle);
-    char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf);
+    void                 *(*create_conf)(ngx_cycle_t *cycle);  /* 创建存储配置项的结构体（解析配置项前） */
+    char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf); /* 综合处理当前事件模块感兴趣的配置项（解析配置项后） */
 
-    ngx_event_actions_t     actions;
+    ngx_event_actions_t     actions;  /* 时间模块需要实现的 10 个抽象方法 */
 } ngx_event_module_t;
 
 

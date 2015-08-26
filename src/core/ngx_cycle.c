@@ -243,7 +243,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         /* ngx_core_module_t，获取ngx_core_module_t */
         module = ngx_modules[i]->ctx;
 
-        /* 初始化每类模块的core module，创建对应的conf_ctx */
+        /*
+         * 调用所有 ngx_core_module_t 的 create_conf 创建保存配置项的结构体
+         */
         if (module->create_conf) {
             /* 调用core_model的createa_conf句柄，获取ngx_conf_t结构体空间 */
             rv = module->create_conf(cycle);
@@ -317,9 +319,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         module = ngx_modules[i]->ctx; /* ngx_core_module_t */
 
         /*
-         * ngx_core_module_t 在nginx.c文件中作为全局变量初始化
-         * 这里再次找到核心模块（在解析完配置之后），调用init_conf回调函数初始化保存
-         * 解析后的配置
+         * 调用所有 ngx_core_module_t 的 init_conf 模块处理当前模块感兴趣的配置项
          */
         if (module->init_conf) {
             if (module->init_conf(cycle, cycle->conf_ctx[ngx_modules[i]->index])

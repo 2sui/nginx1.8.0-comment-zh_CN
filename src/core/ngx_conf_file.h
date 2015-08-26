@@ -121,6 +121,7 @@ struct ngx_open_file_s {
  * ngx_http_module（http类管理模块）、ngx_mail_module（mail类管理模块），即所有各类模块的管理模块或主模块的
  * 上下文都是ngx_core_module_t类型（ngx_conf_module除外，它没有模块上下文），然后各类模块的具体子模块的上下文又指
  * 向各自定义的模块类型（如ngx_http_core_module子模块的上下文为ngx_http_module_t类型而不是ngx_core_module_t类型）。
+ * （ngx_conf_module是个特例，它是没有模块上下文ctx的）
  */
 struct ngx_module_s {
     /*
@@ -150,7 +151,7 @@ struct ngx_module_s {
     /* 模块命令集，将处理nginx.conf中的配置项 */
     ngx_command_t        *commands;
 
-    /* 标示该模块的类型，和ctx是紧密相关的。它的取值范围是以下几种:
+    /* 标示该模块(上下文结构体ctx)的类型，和ctx是紧密相关的。它的取值范围是以下几种:
      * NGX_CORE_MODULE,
      * NGX_CONF_MODULE,
      * NGX_EVENT_MODULE,
