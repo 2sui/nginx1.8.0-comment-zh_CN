@@ -370,7 +370,8 @@ ngx_event_accept(ngx_event_t *ev)
 ngx_int_t
 ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 {
-    /* 得到锁则 */
+    /* accept 锁结构在共享内存中，所以调用 ngx_shmtx_trylock 加锁 */
+    /* 如果获取到锁则设置 ngx_accept_mutex_held 并返回 */
     if (ngx_shmtx_trylock(&ngx_accept_mutex)) {
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
@@ -398,7 +399,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "accept mutex lock failed: %ui", ngx_accept_mutex_held);
 
-    /* 没有得到锁则删除对应 accept 事件 */
+    /* 没有得到锁但是 ngx_accept_mutex_held 被设置则删除对应 accept 事件 */
     if (ngx_accept_mutex_held) {
         if (ngx_disable_accept_events(cycle) == NGX_ERROR) {
             return NGX_ERROR;

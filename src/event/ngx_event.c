@@ -230,20 +230,23 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
          *                    - ngx_cycle->free_connection_n
          * 所以当 ngx_accpet_disabled 大于 0 时表示空闲连接数已小于
          * 总连接数的 1/8， 此时不再获取锁
-        */
+         */
         if (ngx_accept_disabled > 0) {
             ngx_accept_disabled--;
 
         } else {
             /* 获取 accept 锁 */
+            /* 获取锁出错则返回 */
             if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
                 return;
             }
 
+            /* 如果得到锁则设置 NGX_POST_EVENTS 位 */
             if (ngx_accept_mutex_held) {
                 flags |= NGX_POST_EVENTS;
 
             } else {
+                /* 否则设置延时 */
                 if (timer == NGX_TIMER_INFINITE
                     || timer > ngx_accept_mutex_delay)
                 {
