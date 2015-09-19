@@ -98,7 +98,9 @@ static ngx_core_module_t  ngx_events_module_ctx = {
     ngx_event_init_conf
 };
 
-
+/*
+ * events module 解析并保存配置信息。
+*/
 ngx_module_t  ngx_events_module = {
     NGX_MODULE_V1,
     &ngx_events_module_ctx,                /* module context */
@@ -172,7 +174,9 @@ static ngx_command_t  ngx_event_core_commands[] = {
       ngx_null_command
 };
 
-
+/*
+ * event_core_module 通过 event_module 的配置，选取对应的时间处理模块。
+*/
 ngx_event_module_t  ngx_event_core_module_ctx = {
     &event_core_name,
     ngx_event_core_create_conf,            /* create configuration */
@@ -236,7 +240,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
         } else {
             /* 获取 accept 锁 */
-            /* 获取锁出错则返回 */
+            /* 如果获取到锁则设置 ngx_accept_mutex_held,获取锁出错则返回 */
             if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
                 return;
             }
@@ -458,9 +462,9 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     ngx_core_conf_t     *ccf;
     ngx_event_conf_t    *ecf;
 
-    /* 获取 ngx_events_module 这类模块配置上下文 */
+    /* 获取 ngx_events_module 模块配置上下文 */
     cf = ngx_get_conf(cycle->conf_ctx, ngx_events_module);
-    /* 获取 ngx_event_core_module 配置上下文（在ngx_events_module 这类模块配置上下文中） */
+    /* 获取 ngx_event_core_module 配置上下文 */
     ecf = (*cf)[ngx_event_core_module.ctx_index];
 
     if (!ngx_test_config && ngx_process <= NGX_PROCESS_MASTER) {
@@ -595,7 +599,7 @@ ngx_timer_signal_handler(int signo)
 
 #endif
 
-
+/* 初始化进程相关，在 ngx_worker_process_init 中调用 */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {
@@ -607,13 +611,16 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ngx_event_conf_t    *ecf;
     ngx_event_module_t  *module;
 
+    /* 获取 ngx_core_module 的配置上下文 */
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+    /* 获取 ngx_event_core_module 的配置上下文 */
     ecf = ngx_event_get_conf(cycle->conf_ctx, ngx_event_core_module);
 
+    /* 根据配置内容决定是否启用 accept_mutex 锁， */
     if (ccf->master && ccf->worker_processes > 1 && ecf->accept_mutex) {
         ngx_use_accept_mutex = 1;
         ngx_accept_mutex_held = 0;
-        ngx_accept_mutex_delay = ecf->accept_mutex_delay;
+        ngx_accept_mutex_delay = ecf->accept_mutex_delay; /* 未获取锁情况下，下次尝试获取锁的延时 */
 
     } else {
         ngx_use_accept_mutex = 0;
@@ -630,13 +637,19 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
+    /* 初始化 posted_event 事件队列 */
     ngx_queue_init(&ngx_posted_accept_events);
     ngx_queue_init(&ngx_posted_events);
 
+    /* 初始化 event timer （rb树） */
     if (ngx_event_timer_init(cycle->log) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
+    /*
+     * 从所有事件模块中找出在 ngx_event_core_module_ctx.ngx_event_core_init_conf
+     * 所指定的事件模块，并调用该模块的 init 函数。
+    */
     for (m = 0; ngx_modules[m]; m++) {
         if (ngx_modules[m]->type != NGX_EVENT_MODULE) {
             continue;
@@ -648,6 +661,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
         module = ngx_modules[m]->ctx;
 
+        /* 初始化指定的事件模块的 actions（如 epoll 模块会调用 ngx_epoll_init） */
         if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
             /* fatal */
             exit(2);
@@ -658,6 +672,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #if !(NGX_WIN32)
 
+    /* 如果没有启用 timer event 则使用定时信号通知的方式 */
     if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) {
         struct sigaction  sa;
         struct itimerval  itv;
@@ -703,6 +718,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
+    /* 分配 cycle->connection_n 个 connections 空间（单个线程容量） */
     cycle->connections =
         ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
@@ -711,24 +727,28 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
     c = cycle->connections;
 
+    /* 为每个 connection 分配读事件 */
     cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
                                    cycle->log);
     if (cycle->read_events == NULL) {
         return NGX_ERROR;
     }
 
+    /* 初始化读事件 */
     rev = cycle->read_events;
     for (i = 0; i < cycle->connection_n; i++) {
         rev[i].closed = 1;
         rev[i].instance = 1;
     }
 
+    /* 为每个 connections 分配写事件 */
     cycle->write_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
                                     cycle->log);
     if (cycle->write_events == NULL) {
         return NGX_ERROR;
     }
 
+    /* 初始化写事件 */
     wev = cycle->write_events;
     for (i = 0; i < cycle->connection_n; i++) {
         wev[i].closed = 1;
@@ -1174,7 +1194,9 @@ ngx_event_debug_connection(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/*
+ * 创建 ngx_event_cont_t 结构体，保存解析的 event 模块配置。
+*/
 static void *
 ngx_event_core_create_conf(ngx_cycle_t *cycle)
 {
@@ -1205,7 +1227,9 @@ ngx_event_core_create_conf(ngx_cycle_t *cycle)
     return ecf;
 }
 
-
+/*
+ * 保存并处理解析到的 event_conf 配置。
+*/
 static char *
 ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf)
 {
@@ -1226,6 +1250,7 @@ ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf)
 
 #if (NGX_HAVE_EPOLL) && !(NGX_TEST_BUILD_EPOLL)
 
+    /* 如果有 epoll，则启用，这里用 epool_create 测试 epoll 是否可用 */
     fd = epoll_create(100);
 
     if (fd != -1) {
@@ -1270,6 +1295,7 @@ ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf)
 
 #endif
 
+    /* 如果没有找到任何配置的合适的事件模块，则从编译的模块中选出一个模块使用 */
     if (module == NULL) {
         for (i = 0; ngx_modules[i]; i++) {
 
@@ -1297,6 +1323,7 @@ ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf)
     ngx_conf_init_uint_value(ecf->connections, DEFAULT_CONNECTIONS);
     cycle->connection_n = ecf->connections;
 
+    /* 将 event conf 中的 conf 指向 module */
     ngx_conf_init_uint_value(ecf->use, module->ctx_index);
 
     event_module = module->ctx;

@@ -28,6 +28,7 @@ typedef struct {
 
 
 struct ngx_event_s {
+    /* 指向对应的 connection_t 结构体 */
     void            *data;
 
     unsigned         write:1;
@@ -183,6 +184,9 @@ struct ngx_event_aio_s {
 
 
 typedef struct {
+    /*
+     *
+    */
     ngx_int_t  (*add)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
     ngx_int_t  (*del)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
 
@@ -197,6 +201,7 @@ typedef struct {
     ngx_int_t  (*process_events)(ngx_cycle_t *cycle, ngx_msec_t timer,
                    ngx_uint_t flags);
 
+    /* 在 ngx_event_process_init 中调用，用于初始化对应的事件模块的 actions */
     ngx_int_t  (*init)(ngx_cycle_t *cycle, ngx_msec_t timer);
     void       (*done)(ngx_cycle_t *cycle);
 } ngx_event_actions_t;

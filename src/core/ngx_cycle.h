@@ -97,11 +97,11 @@ struct ngx_cycle_s {
     /* files成员元素数 */
     ngx_uint_t                files_n;
 
-    /* 所有连接对象 */
+    /* 所有连接对象（在 ngx_event_process_init 中初始化） */
     ngx_connection_t         *connections;
-    /* 当前进程中所有读事件，connecton_n同时表示所有读事件总数 */
+    /* 当前进程中所有读事件，connecton_n同时表示所有读事件总数在 ngx_event_process_init 中初始化） */
     ngx_event_t              *read_events;
-    /* 当前进程所有写事件，connection_n同时表示所有写事件总数 */
+    /* 当前进程所有写事件，connection_n同时表示所有写事件总数在 ngx_event_process_init 中初始化） */
     ngx_event_t              *write_events;
 
     /*
