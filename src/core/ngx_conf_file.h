@@ -163,9 +163,13 @@ struct ngx_module_s {
     /* nginx运行流程中对应的各过程 */
     ngx_int_t           (*init_master)(ngx_log_t *log); /* 初始化master */
 
-    ngx_int_t           (*init_module)(ngx_cycle_t *cycle); /* 初始化模块 */
+    ngx_int_t           (*init_module)(ngx_cycle_t *cycle); /* 初始化模块, 在 ngx_init_cycle 中调用 */
 
-    ngx_int_t           (*init_process)(ngx_cycle_t *cycle); /* 初始化进程 */
+    /*
+     * 初始化模块进程相关, 如调用 event_core 模块进行对应的初始化，事件队列，锁，
+     * 各事件模块 ctx中 actions的init 方法调用(并将对应的actions赋值给 ngx_event_actions)，cycle 中的 connections等初始化,
+     * 在各子进程中 ngx_worker_process_init 中调用 */
+    ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
     ngx_int_t           (*init_thread)(ngx_cycle_t *cycle); /* 初始化线程 */
     void                (*exit_thread)(ngx_cycle_t *cycle); /* 退出线程 */
     void                (*exit_process)(ngx_cycle_t *cycle); /* 退出进程 */

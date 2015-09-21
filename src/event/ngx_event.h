@@ -101,6 +101,7 @@ struct ngx_event_s {
     unsigned         available:1;
 #endif
 
+    /* 时间循环中调用的事件处理句柄 */
     ngx_event_handler_pt  handler;
 
 
@@ -121,6 +122,7 @@ struct ngx_event_s {
     ngx_rbtree_node_t   timer;
 
     /* the posted queue */
+    /* 构成事件队列，用于在事件循环中定位对应的事件结构体 */
     ngx_queue_t      queue;
 
     unsigned         closed:1;
@@ -198,10 +200,11 @@ typedef struct {
 
     ngx_int_t  (*notify)(ngx_event_handler_pt handler);
 
+    /* ngx_timer_and_event 时间循环中调用 */
     ngx_int_t  (*process_events)(ngx_cycle_t *cycle, ngx_msec_t timer,
                    ngx_uint_t flags);
 
-    /* 在 ngx_event_process_init 中调用，用于初始化对应的事件模块的 actions */
+    /* 在 ngx_event_process_init(ngx_module_t 的 init_process方法) 中调用，用于初始化对应的事件模块的 actions */
     ngx_int_t  (*init)(ngx_cycle_t *cycle, ngx_msec_t timer);
     void       (*done)(ngx_cycle_t *cycle);
 } ngx_event_actions_t;

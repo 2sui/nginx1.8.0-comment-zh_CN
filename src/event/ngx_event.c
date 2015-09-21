@@ -269,7 +269,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "timer delta: %M", delta);
 
-    /* 处理 accept 事件 */
+    /* 处理 accept 事件，调用 ngx_event_t 的 handler 处理对应事件 */
     ngx_event_process_posted(cycle, &ngx_posted_accept_events);
 
     /* 释放 accept 锁 */
@@ -281,7 +281,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         ngx_event_expire_timers();
     }
 
-    /* 等 accept 事件处理完成再处理读写事件 */
+    /* 等 accept 事件处理完成再处理读写事件,调用 ngx_event_t 的 handler 处理对应事件 */
     ngx_event_process_posted(cycle, &ngx_posted_events);
 }
 
@@ -449,7 +449,7 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
 }
 
 /*
- * 在 ngx_init_cycle 中调用，初始化event_module.
+ * 在 ngx_init_cycle 中调用，初始化 event_module, 共享内存锁.
 */
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
@@ -599,7 +599,7 @@ ngx_timer_signal_handler(int signo)
 
 #endif
 
-/* 初始化进程相关，在 ngx_worker_process_init 中调用 */
+/* 初始化进程相关，在 ngx_worker_process_init 中调用,初始化事件队列 */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {
@@ -655,13 +655,14 @@ ngx_event_process_init(ngx_cycle_t *cycle)
             continue;
         }
 
+        /* 找到选中的事件模块 （ngx_event_core_module 的 init_process 方法选中） */
         if (ngx_modules[m]->ctx_index != ecf->use) {
             continue;
         }
 
         module = ngx_modules[m]->ctx;
 
-        /* 初始化指定的事件模块的 actions（如 epoll 模块会调用 ngx_epoll_init） */
+        /* 初始化指定的事件模块的 actions（如 epoll 模块会调用 ngx_epoll_init），并赋值给 ngx_event_actions */
         if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
             /* fatal */
             exit(2);
