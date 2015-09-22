@@ -402,9 +402,11 @@ ngx_epoll_notify_init(ngx_log_t *log)
     notify_conn.read = &notify_event;
     notify_conn.log = log;
 
+    /* epoll event 加入EPOLLIN 事件并设置边沿出发 */
     ee.events = EPOLLIN|EPOLLET;
     ee.data.ptr = &notify_conn;
 
+    /* 将 notify_conn 加入epoll事件中 */
     if (epoll_ctl(ep, EPOLL_CTL_ADD, notify_fd, &ee) == -1) {
         ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
                       "epoll_ctl(EPOLL_CTL_ADD, eventfd) failed");
@@ -761,6 +763,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         instance = (uintptr_t) c & 1;
         c = (ngx_connection_t *) ((uintptr_t) c & (uintptr_t) ~1);
 
+        /**/
         rev = c->read;
 
         if (c->fd == -1 || rev->instance != instance) {

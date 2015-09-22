@@ -173,6 +173,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
                        "wake up, sigio %i", sigio);
 
         /* 管理子进程 */
+        /* 子进程退出信号 */
         if (ngx_reap) {
             ngx_reap = 0;
             ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "reap children");
@@ -465,6 +466,7 @@ ngx_pass_open_channel(ngx_cycle_t *cycle, ngx_channel_t *ch)
 
         /* TODO: NGX_AGAIN */
 
+        /* 进程间传递描述符 */
         ngx_write_channel(ngx_processes[i].channel[0],
                           ch, sizeof(ngx_channel_t), cycle->log);
     }
@@ -536,6 +538,7 @@ ngx_signal_worker_processes(ngx_cycle_t *cycle, int signo)
             continue;
         }
 
+        /* 通过管道向子进程发送对应的指令 */
         if (ch.command) {
             if (ngx_write_channel(ngx_processes[i].channel[0],
                                   &ch, sizeof(ngx_channel_t), cycle->log)
@@ -832,7 +835,10 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
     }
 }
 
-
+/*
+ * 初始化进程相关，设置环境，进程限制，切换用户，cpu亲和性，工作目录，信号屏蔽，
+ * 调用各模块的 init_process 方法, 将channel加入事件机制
+ */
 static void
 ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
 {
@@ -976,6 +982,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    /* 依次关闭不用的管道 */
     for (n = 0; n < ngx_last_process; n++) {
 
         if (ngx_processes[n].pid == -1) {
@@ -1005,7 +1012,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     ngx_last_process = 0;
 #endif
 
-    /* 对管道事件添加事件处理 */
+    /* 对管道事件添加进事件机制中 */
     if (ngx_add_channel_event(cycle, ngx_channel, NGX_READ_EVENT,
                               ngx_channel_handler)
         == NGX_ERROR)
@@ -1077,7 +1084,7 @@ ngx_worker_process_exit(ngx_cycle_t *cycle)
     exit(0);
 }
 
-
+/* 管道事件触发后调用 */
 static void
 ngx_channel_handler(ngx_event_t *ev)
 {

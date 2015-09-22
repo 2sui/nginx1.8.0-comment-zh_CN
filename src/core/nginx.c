@@ -421,6 +421,7 @@ main(int argc, char *const *argv)
 
 #if !(NGX_WIN32)
 
+    /* 初始化信号处理（如当接收到CHCLD信号时设置 ngx_reap) */
     if (ngx_init_signals(cycle->log) != NGX_OK) {
         return 1;
     }
@@ -464,6 +465,13 @@ main(int argc, char *const *argv)
 
         /* master worker 模式 */
     } else {
+        /*
+         * nginx 通过channel向子进程发指令，通过信号处理监控子进程状态
+         * （如当子进程异常退出时 父进程会收到 SIGCHLD 信号，信号处理函数
+         *  【在ngx_process.c文件中的ngx_signal_handler函数中处理】会设置
+         *  ngx_reap 位为 1，在 master 循环中根据该标志位重启子进程）(在 Docker中
+         *  通过管道读到 eof 作为信号通道同步父子进程状态)
+         */
         ngx_master_process_cycle(cycle);
     }
 

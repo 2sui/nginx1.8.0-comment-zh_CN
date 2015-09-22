@@ -31,8 +31,10 @@ struct ngx_event_s {
     /* 指向对应的 connection_t 结构体 */
     void            *data;
 
+    /* 表示该事件可写，即TCP处于发包状态 */
     unsigned         write:1;
 
+    /* 表示该事件为可建立连接 */
     unsigned         accept:1;
 
     /* used to detect the stale events in kqueue, rtsig, and epoll */
@@ -41,32 +43,44 @@ struct ngx_event_s {
     /*
      * the event was passed or would be passed to a kernel;
      * in aio mode - operation was posted.
+     *
+     * 表示当前连接事件是否是活跃的
      */
     unsigned         active:1;
 
+    /* 是否禁用事件 */
     unsigned         disabled:1;
 
     /* the ready event; in aio mode 0 means that no operation can be posted */
+    /* 事件是否就绪（时间消费模块是否可处理这个事件） */
     unsigned         ready:1;
 
     unsigned         oneshot:1;
 
     /* aio operation is complete */
+    /* aio 是否完成 */
     unsigned         complete:1;
 
+    /* 当前处理的字符流是否已结束 */
     unsigned         eof:1;
+    /* 时间中是否出错 */
     unsigned         error:1;
 
+    /* 时间是否已超时，时间消费模块做超时处理 */
     unsigned         timedout:1;
+    /* 时间是否存在于定时器中 */
     unsigned         timer_set:1;
 
+    /* 是否需要延迟处理这个时间（用于限速功能） */
     unsigned         delayed:1;
 
+    /* 是否延迟建立连接（三次握手后等到有数据收到才通知） */
     unsigned         deferred_accept:1;
 
     /* the pending eof reported by kqueue, epoll or in aio chain operation */
     unsigned         pending_eof:1;
 
+    /* post事件 */
     unsigned         posted:1;
 
 #if (NGX_WIN32)
@@ -98,10 +112,11 @@ struct ngx_event_s {
 #if (NGX_HAVE_KQUEUE) || (NGX_HAVE_IOCP)
     int              available;
 #else
+    /* 是否一次accept多个连接 */
     unsigned         available:1;
 #endif
 
-    /* 时间循环中调用的事件处理句柄 */
+    /* 时间循环中调用的事件处理句柄，事件发生后调用 */
     ngx_event_handler_pt  handler;
 
 
@@ -110,6 +125,7 @@ struct ngx_event_s {
 #if (NGX_HAVE_IOCP)
     ngx_event_ovlp_t ovlp;
 #else
+    /*  linux aio */
     struct aiocb     aiocb;
 #endif
 
@@ -125,6 +141,7 @@ struct ngx_event_s {
     /* 构成事件队列，用于在事件循环中定位对应的事件结构体 */
     ngx_queue_t      queue;
 
+    /* 事件是否关闭 */
     unsigned         closed:1;
 
     /* to test on worker exit */
@@ -187,25 +204,36 @@ struct ngx_event_aio_s {
 
 typedef struct {
     /*
-     *
+     * 事件添加方法，负责把感兴趣的事件添加进事件驱动机制中，在调用 process_events 句柄
+     * 后就能获取这个事件。
     */
     ngx_int_t  (*add)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    /* 从事件驱动机制中删除事件，这样 process_events 就不在处理这个事件。 */
     ngx_int_t  (*del)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
 
+    /* 启动事件 */
     ngx_int_t  (*enable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    /* 禁用事件 */
     ngx_int_t  (*disable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
 
+    /* 向事件中添加一个新连接，即该链接的读写事件都添加进事件驱动中了 */
     ngx_int_t  (*add_conn)(ngx_connection_t *c);
+    /* 从事件驱动中删除连接的读写事件 */
     ngx_int_t  (*del_conn)(ngx_connection_t *c, ngx_uint_t flags);
 
+    /* 事件通知句柄 */
     ngx_int_t  (*notify)(ngx_event_handler_pt handler);
 
-    /* ngx_timer_and_event 时间循环中调用 */
+    /* ngx_timer_and_event 时间循环中调用，用于处理分发事件 */
     ngx_int_t  (*process_events)(ngx_cycle_t *cycle, ngx_msec_t timer,
                    ngx_uint_t flags);
 
-    /* 在 ngx_event_process_init(ngx_module_t 的 init_process方法) 中调用，用于初始化对应的事件模块的 actions */
+    /*
+     * 在 ngx_event_process_init(ngx_module_t 的 init_process方法) 中调用，用于初始化对应的事件模块的
+     * actions 并赋值给全局 ngx_event_actions.
+    */
     ngx_int_t  (*init)(ngx_cycle_t *cycle, ngx_msec_t timer);
+    /* 退出事件模块时调用 */
     void       (*done)(ngx_cycle_t *cycle);
 } ngx_event_actions_t;
 

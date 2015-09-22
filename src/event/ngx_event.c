@@ -719,7 +719,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
-    /* 分配 cycle->connection_n 个 connections 空间（单个线程容量） */
+    /* 分配 cycle->connection_n 个 connections 空间（单个进程容量） */
     cycle->connections =
         ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
