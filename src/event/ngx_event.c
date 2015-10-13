@@ -262,6 +262,11 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
     delta = ngx_current_msec;
 
+    /*
+     * 调用对应事件模块的 events_actions.process_events 函数，
+     * 如 ngx_epoll_module 事件模块会调用 ngx_epoll_process_events 函数。
+     * 如果获取到 accept 锁则将 accept 锁事件加入队列，否则直接处理事件。
+    */
     (void) ngx_process_events(cycle, timer, flags);
 
     delta = ngx_current_msec - delta;
