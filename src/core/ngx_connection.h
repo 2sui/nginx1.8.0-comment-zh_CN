@@ -149,6 +149,9 @@ typedef enum {
 #define NGX_SPDY_BUFFERED      0x02
 
 
+/*
+ * 每个 connection_t 表示一系列事件
+*/
 struct ngx_connection_s {
     void               *data;
     ngx_event_t        *read;

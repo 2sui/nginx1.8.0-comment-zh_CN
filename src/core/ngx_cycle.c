@@ -234,18 +234,16 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
 
 
+    /* 找到所有 core module 进行初始化，调用模块的 create_conf 方法 */
     for (i = 0; ngx_modules[i]; i++) {
-        /* 找到每类模块的core module */
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
         }
 
-        /* ngx_core_module_t，获取ngx_core_module_t */
+        /* 获取模块上下文 */
         module = ngx_modules[i]->ctx;
 
-        /*
-         * 调用所有 ngx_core_module_t 的 create_conf 创建保存配置项的结构体
-         */
+        /* 调用 create_conf 创建保存配置项的结构体 */
         if (module->create_conf) {
             /* 调用core_model的createa_conf句柄，获取ngx_conf_t结构体空间 */
             rv = module->create_conf(cycle);
@@ -253,7 +251,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                 ngx_destroy_pool(pool);
                 return NULL;
             }
-            /* 将ngx_core_module_t这类模块指针指向rv，即ngx_core_conf_t */
+            /* 将获取的 ngx_conf_t 结构体指针（rv）赋值给该模块的配置上下文 */
             cycle->conf_ctx[ngx_modules[i]->index] = rv;
         }
     }
@@ -299,7 +297,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-    /* 解析配置文件 */
+    /* 解析配置文件，调用各模块对应的 command 中的 set 函数 */
     if (ngx_conf_parse(&conf, &cycle->conf_file) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
@@ -311,7 +309,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                        cycle->conf_file.data);
     }
 
-    /* 调用所有 core module 的 init_conf 方法 */
+    /* 调用所有 core 模块的 init_conf 方法 */
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -320,7 +318,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         module = ngx_modules[i]->ctx; /* ngx_core_module_t */
 
         /*
-         * 调用所有 ngx_core_module_t 的 init_conf 模块处理当前模块感兴趣的配置项
+         * 调用 init_conf 处理当前模块感兴趣的配置项
          */
         if (module->init_conf) {
             if (module->init_conf(cycle, cycle->conf_ctx[ngx_modules[i]->index])
@@ -645,7 +643,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
     }
 
-    /* 打开需要监听的套接字 */
+    /* 打开需要监听的套接字: socket->bind->listen*/
     if (ngx_open_listening_sockets(cycle) != NGX_OK) {
         goto failed;
     }

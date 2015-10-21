@@ -232,6 +232,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 
         /* rc == NGX_OK || rc == NGX_CONF_BLOCK_START */
 
+        /* 如果配置有自定义的 解析函数， 则调用 */
         if (cf->handler) {
 
             /*
@@ -260,7 +261,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         }
 
 
-        /* 指令解析 */
+        /* nginx 自带指令解析 */
         rc = ngx_conf_handler(cf, rc);
 
         if (rc == NGX_ERROR) {
@@ -313,14 +314,16 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 
     found = 0;
 
+
     for (i = 0; ngx_modules[i]; i++) {
 
+        /* 遍历模块获取 command */
         cmd = ngx_modules[i]->commands;
         if (cmd == NULL) {
             continue;
         }
 
-        /* 判断指令用法是否正确 */
+        /* 将解析到的 conf 与对应模块的 command 匹配 */
         for ( /* void */ ; cmd->name.len; cmd++) {
 
             if (name->len != cmd->name.len) {
@@ -334,7 +337,10 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 
             found = 1;
 
-            /* 只有当模块为conf_module或者配置模块与当前模块类型相同是才继续 */
+            /*
+             * 找到 ngx_conf_module 模块（只有 ngx_conf_module 模块的 type 为 NGX_CONF_MODULE）
+             * 或者解析的配置类型与模块类型相同
+             */
             if (ngx_modules[i]->type != NGX_CONF_MODULE
                 && ngx_modules[i]->type != cf->module_type)
             {
@@ -418,7 +424,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                 }
             }
 
-            /* 调用回调函数 */
+            /* 调用模块对应命令中的 set 函数，如 ngx_http_commands 中 set 指向 ngx_http_block */
             rv = cmd->set(cf, cmd, conf);
 
             if (rv == NGX_CONF_OK) {
@@ -436,6 +442,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
         }
     }
 
+    /* 虽然有命令， 但是不在对应的模块里 */
     if (found) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "\"%s\" directive is not allowed here", name->data);
