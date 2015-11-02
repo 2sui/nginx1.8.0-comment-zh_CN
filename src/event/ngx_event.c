@@ -920,7 +920,7 @@ ngx_send_lowat(ngx_connection_t *c, size_t lowat)
     return NGX_OK;
 }
 
-
+/* 在 ngx_conf_handler 中被调用 */
 static char *
 ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -942,6 +942,7 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             continue;
         }
 
+        /* 确定 event_module 在所有事件模块中的位置 */
         ngx_modules[i]->ctx_index = ngx_event_max_module++;
     }
 

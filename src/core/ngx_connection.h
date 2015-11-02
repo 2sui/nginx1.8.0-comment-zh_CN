@@ -62,7 +62,7 @@ struct ngx_listening_s {
     /* ngx_listening_t链表中前一个listening结构 */
     ngx_listening_t    *previous;
     /* 当前ngx_listening_t 对应的ngx_connection_t结构 */
-    ngx_connection_t   *connection;
+    ngx_connectio n_t   *connection;
 
     /*
      * 标志位，为1则表示在当前监听句柄有效，且执行ngx_init_cycle时不关闭监听端口，为0时则正常关闭。

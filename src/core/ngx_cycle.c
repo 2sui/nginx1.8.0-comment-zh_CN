@@ -206,7 +206,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_queue_init(&cycle->reusable_connections_queue);
 
 
-    /* 为ngx_cycle_t.conf_ctx(四维指针) */
+    /* 为ngx_cycle_t.conf_ctx(四维指针)分配空间 */
     cycle->conf_ctx = ngx_pcalloc(pool, ngx_max_module * sizeof(void *));
     if (cycle->conf_ctx == NULL) {
         ngx_destroy_pool(pool);
@@ -243,7 +243,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         /* 获取模块上下文 */
         module = ngx_modules[i]->ctx;
 
-        /* 调用 create_conf 创建保存配置项的结构体 */
+        /* 调用 create_conf 创建保存配置项并反回创建的结构体地址（rv）,然后将这个地址
+         * 保存在 cycle->conf_ctx 对应的位置中。
+         */
         if (module->create_conf) {
             /* 调用core_model的createa_conf句柄，获取ngx_conf_t结构体空间 */
             rv = module->create_conf(cycle);
