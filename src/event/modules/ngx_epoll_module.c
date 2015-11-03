@@ -310,7 +310,10 @@ failed:
 
 #endif
 
-/* 初始化事件模块，如给 ngx_event_actions 赋值对应事件模块的 actions */
+/*
+ * 初始化事件模块，如给 ngx_event_actions 赋值对应事件模块的 actions.init，这里
+ * 调用 epoll_create 初始化 epoll 事件。
+ */
 static ngx_int_t
 ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 {

@@ -847,7 +847,7 @@ ngx_close_listening_sockets(ngx_cycle_t *cycle)
     cycle->listening.nelts = 0;
 }
 
-
+/* 从连接池中找到一个空闲链接初始化 */
 ngx_connection_t *
 ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
 {
@@ -857,6 +857,7 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
 
     /* disable warning: Win32 SOCKET is u_int while UNIX socket is int */
 
+    /* win32 下使用了 epoll，则出错 */
     if (ngx_cycle->files && (ngx_uint_t) s >= ngx_cycle->files_n) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
                       "the new socket has number %d, "
@@ -865,13 +866,16 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
         return NULL;
     }
 
+    /* 得到一个空闲链接 */
     c = ngx_cycle->free_connections;
 
+    /* 如果到了连接池尾，则从可复用连接中选择一个 */
     if (c == NULL) {
         ngx_drain_connections();
         c = ngx_cycle->free_connections;
     }
 
+    /* 如果还没有，就出错 */
     if (c == NULL) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
                       "%ui worker_connections are not enough",
@@ -880,13 +884,16 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
         return NULL;
     }
 
+    /* 将 free_connections 指针指向下一空闲连接 */
     ngx_cycle->free_connections = c->data;
     ngx_cycle->free_connection_n--;
 
+    /* 如果使用 epoll 则把这个链接放入事件句柄队列 */
     if (ngx_cycle->files) {
         ngx_cycle->files[s] = c;
     }
 
+    /* 找到连接池对应的读写事件，给 connection 重新初始化 */
     rev = c->read;
     wev = c->write;
 

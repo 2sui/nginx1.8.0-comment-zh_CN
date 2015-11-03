@@ -185,7 +185,7 @@ ngx_event_module_t  ngx_event_core_module_ctx = {
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
-
+/* event 模块的管理模块，其中 process_init 中会决定使用哪个事件模块 （ngx_actions） */
 ngx_module_t  ngx_event_core_module = {
     NGX_MODULE_V1,
     &ngx_event_core_module_ctx,            /* module context */
@@ -593,6 +593,8 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
 #if !(NGX_WIN32)
 
+/* 定时器超时信号处理函数，设置 ngx_event_timer_alarm 为 1，该变量在 ngx_event_actions 的
+ * process_event 函数中会使用，当为 1 时调用 ngx_timer_update 更新时间 */
 static void
 ngx_timer_signal_handler(int signo)
 {
@@ -605,7 +607,11 @@ ngx_timer_signal_handler(int signo)
 
 #endif
 
-/* 初始化进程相关，在 ngx_worker_process_init 中调用,初始化事件队列 */
+/*
+ * 初始化进程相关，在 ngx_worker_process_init 中调用,初始化事件队列，
+ * 初始化所有监听池和连接池，将监听池和连接池绑定，启用监听池中的 accept 位，设置连接池读事件句柄
+ * 为 ngx_event_accept 并调用 ngx_event_actions 的 add 方法将对应的读事件加入队列。
+ */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {
@@ -622,7 +628,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     /* 获取 ngx_event_core_module 的配置上下文 */
     ecf = ngx_event_get_conf(cycle->conf_ctx, ngx_event_core_module);
 
-    /* 根据配置内容决定是否启用 accept_mutex 锁， */
+    /* 根据配置内容决定是否启用 accept_mutex 锁（启用 master-worker 模式且 worker 数量大于 1 且开启 accept 锁选项） */
     if (ccf->master && ccf->worker_processes > 1 && ecf->accept_mutex) {
         ngx_use_accept_mutex = 1;
         ngx_accept_mutex_held = 0;
@@ -653,7 +659,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     }
 
     /*
-     * 从所有事件模块中找出在 ngx_event_core_module_ctx.ngx_event_core_init_conf
+     * 从所有事件模块中找出在 ngx_event_core_module 模块上下文（ngx_event_core_module_ctx）的 init_conf 方法（ngx_event_core_init_conf）中
      * 所指定的事件模块，并调用该模块的 init 函数。
     */
     for (m = 0; ngx_modules[m]; m++) {
@@ -679,11 +685,12 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #if !(NGX_WIN32)
 
-    /* 如果没有启用 timer event 则使用定时信号通知的方式 */
+    /* 如果配置 ngx_timer_resolution（控制时间精度，则用信号时间通知方法）*/
     if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) {
         struct sigaction  sa;
         struct itimerval  itv;
 
+        /* 先绑定超时后 SIGALRM 信号处理函数 ngx_timer_signal_handler */
         ngx_memzero(&sa, sizeof(struct sigaction));
         sa.sa_handler = ngx_timer_signal_handler;
         sigemptyset(&sa.sa_mask);
@@ -699,12 +706,14 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         itv.it_value.tv_sec = ngx_timer_resolution / 1000;
         itv.it_value.tv_usec = (ngx_timer_resolution % 1000 ) * 1000;
 
+        /* 调用 setitimer 函数定时发送 SIGALRM 信号 */
         if (setitimer(ITIMER_REAL, &itv, NULL) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "setitimer() failed");
         }
     }
 
+    /* 如果使用 epoll 事件通知，则预分配句柄空间 */
     if (ngx_event_flags & NGX_USE_FD_EVENT) {
         struct rlimit  rlmt;
 
@@ -725,7 +734,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
-    /* 分配 cycle->connection_n 个 connections 空间（单个进程容量） */
+    /* 分配 cycle->connection_n 个 connections 空间（单个进程容量）初始化连接池 */
     cycle->connections =
         ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
@@ -764,6 +773,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     i = cycle->connection_n;
     next = NULL;
 
+    /*
+     * 初始化连接池，初始化 data 字段，设置读写事件池。这里先将 data 字段作为连接指针，
+     * 使所有空闲连接结构连起来。
+     */
     do {
         i--;
 
@@ -775,6 +788,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         next = &c[i];
     } while (i);
 
+    /* 将 free_connections 指向第一个空闲连接 */
     cycle->free_connections = next;
     cycle->free_connection_n = cycle->connection_n;
 
@@ -783,6 +797,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
 
+        /* 依次取出每个空闲链接进行初始化 */
         c = ngx_get_connection(ls[i].fd, cycle->log);
 
         if (c == NULL) {
@@ -797,6 +812,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         rev = c->read;
 
         rev->log = c->log;
+        /* 设置 accept 位 */
         rev->accept = 1;
 
 #if (NGX_HAVE_DEFERRED_ACCEPT)
@@ -861,6 +877,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #else
 
+        /* 设置读事件句柄位 ngx_event_accept */
         rev->handler = ngx_event_accept;
 
         if (ngx_use_accept_mutex) {
@@ -873,6 +890,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
             }
 
         } else {
+            /* 调用 ngx_event_actions 的 add 方法将读事件加入 */
             if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }

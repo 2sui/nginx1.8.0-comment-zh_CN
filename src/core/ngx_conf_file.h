@@ -144,7 +144,8 @@ struct ngx_module_s {
 
     /*
      * 模块上下文，每个模块有不同模块上下文,每个模块都有自己的特性，而ctx会指向特定类型模块的公共接口。
-     * 比如，在HTTP模块中，ctx需要指向ngx_http_module_t结构体。
+     * 比如，在HTTP模块中，ctx需要指向ngx_http_module_t结构体；所有模块的 core 模块的 ctx 指向
+     * ngx_core_module_t结构体（conf 模块除外，它没有上下文指向，类型为 CONF_MODULE）。
      */
     void                 *ctx;
 
@@ -167,7 +168,7 @@ struct ngx_module_s {
 
     /*
      * 初始化模块进程相关, 如调用 event_core 模块进行对应的初始化，事件队列，锁，
-     * 各事件模块 ctx中 actions的init 方法调用(并将对应的actions赋值给 ngx_event_actions)，cycle 中的 connections等初始化,
+     * 各事件模块 ctx中 actions 的init 方法调用(并将对应的actions赋值给 ngx_event_actions)，cycle 中的 connections等初始化,
      * 在各子进程中 ngx_worker_process_init 中调用 */
     ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
     ngx_int_t           (*init_thread)(ngx_cycle_t *cycle); /* 初始化线程 */

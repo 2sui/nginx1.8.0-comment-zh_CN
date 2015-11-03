@@ -381,7 +381,7 @@ main(int argc, char *const *argv)
 
     /*
      * 初始化ngx_cycle_t并继承旧的ngx_cycle_t，解析配置文件，加载模块，打开监听端口，初始化进程间通信方式，
-     * 调用各模块的init_module回调等（关键部分）
+     * 调用所有 core module 的 create_conf 和 init_conf 方法，调用各模块的init_module回调。（关键部分）
     */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {

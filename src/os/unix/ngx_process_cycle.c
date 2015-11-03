@@ -130,7 +130,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
-    /* 启动 worker 进程 */
+    /* 启动 worker 进程,在每个 worker 进程中调用 所有模块的 init_process 方法 */
     ngx_start_worker_processes(cycle, ccf->worker_processes,
                                NGX_PROCESS_RESPAWN);
     /* 启动 cache manager 进程 */
