@@ -363,12 +363,14 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 
     ngx_io = ngx_os_io;
 
-    /* 初始化全局 ngx_event_actions */
+    /* 用自己的 actions 初始化全局 ngx_event_actions */
     ngx_event_actions = ngx_epoll_module_ctx.actions;
 
+    /* epoll ET mod */
 #if (NGX_HAVE_CLEAR_EVENT)
     ngx_event_flags = NGX_USE_CLEAR_EVENT
 #else
+    /* epoll LT mod */
     ngx_event_flags = NGX_USE_LEVEL_EVENT
 #endif
                       |NGX_USE_GREEDY_EVENT
@@ -507,7 +509,7 @@ ngx_epoll_done(ngx_cycle_t *cycle)
     nevents = 0;
 }
 
-
+/* 向 actions 中添加事件 */
 static ngx_int_t
 ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 {
@@ -521,6 +523,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
     events = (uint32_t) event;
 
+    /* 确定当前是读事件还是写事件 */
     if (event == NGX_READ_EVENT) {
         e = c->write;
         prev = EPOLLOUT;
@@ -536,6 +539,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 #endif
     }
 
+    /* 根据是否为活跃事件判断当前事件是修改还是添加 */
     if (e->active) {
         op = EPOLL_CTL_MOD;
         events |= prev;
@@ -551,12 +555,14 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
                    "epoll add event: fd:%d op:%d ev:%08XD",
                    c->fd, op, ee.events);
 
+    /* 调用 epoll_ctl 添加或修改事件 */
     if (epoll_ctl(ep, op, c->fd, &ee) == -1) {
         ngx_log_error(NGX_LOG_ALERT, ev->log, ngx_errno,
                       "epoll_ctl(%d, %d) failed", op, c->fd);
         return NGX_ERROR;
     }
 
+    /* 设置活跃位 */
     ev->active = 1;
 #if 0
     ev->oneshot = (flags & NGX_ONESHOT_EVENT) ? 1 : 0;
@@ -566,6 +572,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 }
 
 
+/* 删除 actions 中的事件 */
 static ngx_int_t
 ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 {

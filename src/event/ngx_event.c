@@ -674,7 +674,11 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
         module = ngx_modules[m]->ctx;
 
-        /* 初始化指定的事件模块的 actions（如 epoll 模块会调用 ngx_epoll_init），并赋值给 ngx_event_actions */
+        /*
+         * 调用匹配的事件模块的 init 方法。（如使用 epoll 时会找到 ngx_epoll_module 并调用
+         * 其 actions.init 方法即 ngx_epoll_init 方法，在该方法中 ngx_epoll_module 会将
+         * 自己的 actions 赋值给全局 actions 即 ngx_event_actions）
+         */
         if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
             /* fatal */
             exit(2);
