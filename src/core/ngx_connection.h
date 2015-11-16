@@ -153,19 +153,26 @@ typedef enum {
  * 每个 connection_t 表示一系列事件
 */
 struct ngx_connection_s {
+    /* 当未使用时作为指针指向下一个空闲结构体，当使用中时有具体模块定义 */
     void               *data;
+    /* 读写事件结构体指针 */
     ngx_event_t        *read;
     ngx_event_t        *write;
 
     ngx_socket_t        fd;
 
+
+    /* 收发函数句柄 */
     ngx_recv_pt         recv;
     ngx_send_pt         send;
+    /* 收发句柄调用的参数 */
     ngx_recv_chain_pt   recv_chain;
     ngx_send_chain_pt   send_chain;
 
+    /* 对应的 listening 对象 */
     ngx_listening_t    *listening;
 
+    /* 已发送字节 */
     off_t               sent;
 
     ngx_log_t          *log;
@@ -189,6 +196,7 @@ struct ngx_connection_s {
 
     ngx_queue_t         queue;
 
+    /* 连接使用数 */
     ngx_atomic_uint_t   number;
 
     ngx_uint_t          requests;

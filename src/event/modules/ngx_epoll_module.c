@@ -521,6 +521,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
     c = ev->data;
 
+    /* 当前事件类型 */
     events = (uint32_t) event;
 
     /* 确定当前是读事件还是写事件 */
@@ -549,6 +550,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     }
 
     ee.events = events | (uint32_t) flags;
+    /* 根据 instance 位，将地址最后一位选择性屏蔽 */
     ee.data.ptr = (void *) ((uintptr_t) c | ev->instance);
 
     ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ev->log, 0,
@@ -731,12 +733,12 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "epoll timer: %M", timer);
 
-    /* 等待事件通知 */
+    /* 调用 epoll_wait 等待事件通知 */
     events = epoll_wait(ep, event_list, (int) nevents, timer);
 
     err = (events == -1) ? ngx_errno : 0;
 
-    /* 更新事件戳 */
+    /* 更新事件戳 如果定时器超时发出信号 */
     if (flags & NGX_UPDATE_TIME || ngx_event_timer_alarm) {
         ngx_time_update();
     }
@@ -776,13 +778,23 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     for (i = 0; i < events; i++) {
         c = event_list[i].data.ptr;
 
+        /* 地址最后一位有特殊含义，所以先取出最后一位。由于无论 32bit 或 64bit机，
+         * 地址肯定是偶数，无论如何地址第一位肯定是 0（内存地址会关于 2^n 对齐，以
+         * 加快CPU计算地址的速度），所以这里利用地址中这个肯定为 0 的位来保存
+         * instance 标志位，使用时再把该标志为取出然后还原地址（最后一位置 0）即可。
+         * instance 在 ngx_get_connection 函数中利用置反的方法判断是否过期，如当
+         * a，b,c 三事件发生, a中将c的连接关闭，这时b调用ngx_get_connection又打开
+         * 新连接，由于c刚关闭所以打开的句柄和刚刚关闭的句柄相同，但是由于b获取空闲
+         * 连接的 ngx_get_connection 函数置反instance 所以过期，当c处理原有事件的时候
+         * 就能根据instance 过期正确处理了。
+         */
         instance = (uintptr_t) c & 1;
         c = (ngx_connection_t *) ((uintptr_t) c & (uintptr_t) ~1);
 
         /* 获取 ngx_connect_t 对应的 read 函数 */
         rev = c->read;
 
-        /* 句柄被关闭 */
+        /* 根据 instance 判断读事件是否过期 */
         if (c->fd == -1 || rev->instance != instance) {
 
             /*
@@ -841,9 +853,9 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
             rev->ready = 1;
 
-            /* 如果获取到accept锁则处理 accept 事件 */
+            /* 如果有事件事件 */
             if (flags & NGX_POST_EVENTS) {
-                /* 根据是否设置 accept 位选择对应的事件队列 */
+                /* 根据是否是 accept 事件判断放入哪个队列（延后事件） */
                 queue = rev->accept ? &ngx_posted_accept_events
                                     : &ngx_posted_events;
 
@@ -851,7 +863,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
                 ngx_post_event(rev, queue);
 
             } else {
-                /* 没有 accept 事件则处理可读事件 */
+                /* 处理读事件 */
                 rev->handler(rev);
             }
         }
@@ -861,7 +873,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         /* 如果有可写事件 */
         if ((revents & EPOLLOUT) && wev->active) {
 
-            /* 句柄关闭则继续 */
+            /* 是否过期 */
             if (c->fd == -1 || wev->instance != instance) {
 
                 /*
@@ -876,7 +888,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
             wev->ready = 1;
 
-            /* 如果获取到 accept 锁则将写事件 加入队列 */
+            /* 根据 accept 状态选择队列（延后事件） */
             if (flags & NGX_POST_EVENTS) {
                 ngx_post_event(wev, &ngx_posted_events);
 

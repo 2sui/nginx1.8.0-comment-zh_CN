@@ -38,6 +38,7 @@ struct ngx_event_s {
     unsigned         accept:1;
 
     /* used to detect the stale events in kqueue, rtsig, and epoll */
+    /* 事件是否过期 */
     unsigned         instance:1;
 
     /*

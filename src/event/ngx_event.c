@@ -245,8 +245,13 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
                 return;
             }
 
-            /* 如果得到锁则设置 NGX_POST_EVENTS 位 */
+            /* 如果得到锁则设置 NGX_POST_EVENTS 位，接下来的事件会根据是否是
+             * accept 事件选择放入 ngx_posted_accept_events 队列还是
+             * ngx_posted_events 队列。
+             *
+            */
             if (ngx_accept_mutex_held) {
+                /* 设置延后处理 */
                 flags |= NGX_POST_EVENTS;
 
             } else {

@@ -426,11 +426,12 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
 
         c = ls[i].connection;
 
+        /* 在 listening 数组中找到空闲的连接 */
         if (c->read->active) {
             continue;
         }
 
-        /* 添加 connection */
+        /* 添加 connection 至事件队列 */
         if (ngx_event_flags & NGX_USE_RTSIG_EVENT) {
 
             if (ngx_add_conn(c) == NGX_ERROR) {
