@@ -2,3 +2,5 @@
 *~
 .DS*
 *.autosave
+*.pro
+*.pro.user*
