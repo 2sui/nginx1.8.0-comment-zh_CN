@@ -2,4 +2,9 @@
 *~
 .DS*
 *.autosave
+<<<<<<< HEAD
 *.pro*
+=======
+*.pro
+*.pro.user*
+>>>>>>> master
