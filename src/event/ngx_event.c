@@ -821,7 +821,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         rev = c->read;
 
         rev->log = c->log;
-        /* 设置 accept 位 */
+        /* 设置listening数组 accept 位 */
         rev->accept = 1;
 
 #if (NGX_HAVE_DEFERRED_ACCEPT)
@@ -886,20 +886,20 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #else
 
-        /* 设置读事件句柄位 ngx_event_accept */
+        /* 设置listening 数组的读事件句柄 ngx_event_accept */
         rev->handler = ngx_event_accept;
 
         if (ngx_use_accept_mutex) {
             continue;
         }
 
+        /* 将listening的事件加入事件处理队列 */
         if (ngx_event_flags & NGX_USE_RTSIG_EVENT) {
             if (ngx_add_conn(c) == NGX_ERROR) {
                 return NGX_ERROR;
             }
 
         } else {
-            /* 调用 ngx_event_actions 的 add 方法将读事件加入 */
             if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }

@@ -766,7 +766,8 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
      * 初始化 worker 线程:设置系统配置,切换用户，设置cpu亲和性，屏蔽信号，
      * 调用各模块 init_process 函数(event 模块会调用 ngx_event_core_module
      * 分配事件模块空间,调用对应事件模块 actions 的 init 方法并将 actions 赋值
-     * 给 ngx_event_actions)，添加进程通信事件.
+     * 给 ngx_event_actions，如epoll_event 模块调用 epoll_create)，创建事件队列
+     * 并将监听事件加入事件队列，添加进程通信事件.
     */
     ngx_worker_process_init(cycle, worker);
 

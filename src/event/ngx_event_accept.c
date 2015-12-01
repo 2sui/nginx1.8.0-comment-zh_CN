@@ -15,7 +15,9 @@ static ngx_int_t ngx_disable_accept_events(ngx_cycle_t *cycle);
 static void ngx_close_accepted_connection(ngx_connection_t *c);
 
 
-/* 新连接到达后的处理事件句柄 */
+/*
+ * 新连接到达后的处理事件句柄
+*/
 void
 ngx_event_accept(ngx_event_t *ev)
 {
@@ -34,6 +36,7 @@ ngx_event_accept(ngx_event_t *ev)
 #endif
 
     if (ev->timedout) {
+        /* 如果超时， 添加 accept事件至事件队列 */
         if (ngx_enable_accept_events((ngx_cycle_t *) ngx_cycle) != NGX_OK) {
             return;
         }
@@ -57,9 +60,11 @@ ngx_event_accept(ngx_event_t *ev)
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, ev->log, 0,
                    "accept on %V, ready: %d", &ls->addr_text, ev->available);
 
+    /* 如果设置 available 则尽可能多的 accept（ET模式） */
     do {
         socklen = NGX_SOCKADDRLEN;
 
+        /* accept 连接 */
 #if (NGX_HAVE_ACCEPT4)
         if (use_accept4) {
             s = accept4(lc->fd, (struct sockaddr *) sa, &socklen,
@@ -112,6 +117,7 @@ ngx_event_accept(ngx_event_t *ev)
                 }
             }
 
+            /* 禁用 accept 事件 */
             if (err == NGX_EMFILE || err == NGX_ENFILE) {
                 if (ngx_disable_accept_events((ngx_cycle_t *) ngx_cycle)
                     != NGX_OK)
@@ -139,6 +145,7 @@ ngx_event_accept(ngx_event_t *ev)
         (void) ngx_atomic_fetch_add(ngx_stat_accepted, 1);
 #endif
 
+        /* 设置 accept 事件启用的概率 */
         ngx_accept_disabled = ngx_cycle->connection_n / 8
                               - ngx_cycle->free_connection_n;
 
@@ -157,6 +164,7 @@ ngx_event_accept(ngx_event_t *ev)
         (void) ngx_atomic_fetch_add(ngx_stat_active, 1);
 #endif
 
+        /* 为新连接创建内存池 */
         c->pool = ngx_create_pool(ls->pool_size, ev->log);
         if (c->pool == NULL) {
             ngx_close_accepted_connection(c);
@@ -202,6 +210,7 @@ ngx_event_accept(ngx_event_t *ev)
 
         *log = ls->log;
 
+        /* 设置读写事件句柄 */
         c->recv = ngx_recv;
         c->send = ngx_send;
         c->recv_chain = ngx_recv_chain;
@@ -257,6 +266,7 @@ ngx_event_accept(ngx_event_t *ev)
          *             or protection by critical section or light mutex
          */
 
+        /* 引用计数 */
         c->number = ngx_atomic_fetch_add(ngx_connection_counter, 1);
 
 #if (NGX_STAT_STUB)
@@ -348,6 +358,7 @@ ngx_event_accept(ngx_event_t *ev)
         }
 #endif
 
+        /* 将新连接加入事件队列 */
         if (ngx_add_conn && (ngx_event_flags & NGX_USE_EPOLL_EVENT) == 0) {
             if (ngx_add_conn(c) == NGX_ERROR) {
                 ngx_close_accepted_connection(c);
@@ -431,7 +442,7 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
             continue;
         }
 
-        /* 添加 connection 至事件队列 */
+        /* 添加 listening 至事件队列 */
         if (ngx_event_flags & NGX_USE_RTSIG_EVENT) {
 
             if (ngx_add_conn(c) == NGX_ERROR) {
@@ -439,7 +450,6 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
             }
 
         } else {
-            /* 在 connection 上添加事件 */
             if (ngx_add_event(c->read, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }
