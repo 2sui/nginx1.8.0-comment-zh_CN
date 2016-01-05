@@ -137,7 +137,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    /* 修改了传进来的conf指向的值 */
+    /* 将 conf_ctx 指针指向 ctx */
     *(ngx_http_conf_ctx_t **) conf = ctx;
 
 
@@ -156,7 +156,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     /* the http main_conf context, it is the same in the all http contexts */
 
-    /* 为所有http模块创建main_conf */
+    /* 为所有http模块创建 main_conf 指针数组 */
     ctx->main_conf = ngx_pcalloc(cf->pool,
                                  sizeof(void *) * ngx_http_max_module);
     if (ctx->main_conf == NULL) {
@@ -169,7 +169,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      * the server{}s' srv_conf's
      */
 
-    /* 为所有http模块创建srv_conf */
+    /* 为所有http模块创建 srv_conf 指针数组,用于保存合并的 serv  */
     ctx->srv_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->srv_conf == NULL) {
         return NGX_CONF_ERROR;
@@ -181,7 +181,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      * the server{}s' loc_conf's
      */
 
-    /* 为所有http模块创建loc_conf */
+    /* 为所有http模块创建 loc_conf 指针数组,用于保存合并的 loc 块 */
     ctx->loc_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->loc_conf == NULL) {
         return NGX_CONF_ERROR;
@@ -201,7 +201,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         module = ngx_modules[m]->ctx;
         mi = ngx_modules[m]->ctx_index;
 
-        /* 依次初始化http模块的main_conf */
+        /* 依次建立http模块的 main_conf,填充 main_conf指针数组 */
         if (module->create_main_conf) {
             ctx->main_conf[mi] = module->create_main_conf(cf);
             if (ctx->main_conf[mi] == NULL) {
@@ -209,7 +209,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
         }
 
-        /* 依次初始化http模块的srv_conf */
+        /* 依次建立http模块的srv_conf,填充 srv_conf 指针数组 */
         if (module->create_srv_conf) {
             ctx->srv_conf[mi] = module->create_srv_conf(cf);
             if (ctx->srv_conf[mi] == NULL) {
@@ -217,7 +217,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
         }
 
-        /* 依次初始化http模块的loc_conf */
+        /* 依次建立http模块的loc_conf,填充 loc_conf 数组 */
         if (module->create_loc_conf) {
             ctx->loc_conf[mi] = module->create_loc_conf(cf);
             if (ctx->loc_conf[mi] == NULL) {
@@ -236,6 +236,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         module = ngx_modules[m]->ctx;
 
+        /* 调用 preconfiguration 预处理配置 */
         if (module->preconfiguration) {
             if (module->preconfiguration(cf) != NGX_OK) {
                 return NGX_CONF_ERROR;
@@ -260,20 +261,25 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      * and its location{}s' loc_conf's
      */
 
-    /* 合并解析结果 */
+    /* 找到 http_core_module_conf */
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
+    /* http_core_module 中的 serv块conf */
     cscfp = cmcf->servers.elts;
 
+    /* 遍历所有 http 模块,解析初始化 http{} 块 main_conf  */
     for (m = 0; ngx_modules[m]; m++) {
         if (ngx_modules[m]->type != NGX_HTTP_MODULE) {
             continue;
         }
 
+        /* module */
         module = ngx_modules[m]->ctx;
+        /* module index */
         mi = ngx_modules[m]->ctx_index;
 
         /* init http{} main_conf's */
 
+        /* 初始化 main_conf  */
         if (module->init_main_conf) {
             rv = module->init_main_conf(cf, ctx->main_conf[mi]);
             if (rv != NGX_CONF_OK) {
@@ -281,6 +287,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
         }
 
+        /* 合并 http{} 块中的 serv{}块 */
         rv = ngx_http_merge_servers(cf, cmcf, module, mi);
         if (rv != NGX_CONF_OK) {
             goto failed;
@@ -290,6 +297,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     /* create location trees */
 
+    /* 遍历所有 serv{}块中的每个 loc{} 块 */
     for (s = 0; s < cmcf->servers.nelts; s++) {
 
         clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
