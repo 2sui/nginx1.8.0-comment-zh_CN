@@ -3466,6 +3466,7 @@ ngx_http_core_init_main_conf(ngx_conf_t *cf, void *conf)
     ngx_conf_init_uint_value(cmcf->server_names_hash_bucket_size,
                              ngx_cacheline_size);
 
+    /* 各个主机名通过 hash 保存和查找 */
     cmcf->server_names_hash_bucket_size =
             ngx_align(cmcf->server_names_hash_bucket_size, ngx_cacheline_size);
 

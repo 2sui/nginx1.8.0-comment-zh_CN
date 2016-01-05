@@ -2449,8 +2449,10 @@ ngx_http_variables_add_core_vars(ngx_conf_t *cf)
     ngx_http_variable_t        *cv, *v;
     ngx_http_core_main_conf_t  *cmcf;
 
+    /* 获取当前模块的 main_conf */
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
-
+    
+    /* 为 hash 表申请空间 */
     cmcf->variables_keys = ngx_pcalloc(cf->temp_pool,
                                        sizeof(ngx_hash_keys_arrays_t));
     if (cmcf->variables_keys == NULL) {
@@ -2466,6 +2468,7 @@ ngx_http_variables_add_core_vars(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
+    /* 将 http 字段变量映射至 hash 表中 */
     for (cv = ngx_http_core_variables; cv->name.len; cv++) {
         v = ngx_palloc(cf->pool, sizeof(ngx_http_variable_t));
         if (v == NULL) {

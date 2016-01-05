@@ -116,7 +116,16 @@ ngx_module_t  ngx_http_module = {
 };
 
 
-/* set 函数 */
+/* set 函数 
+ * 
+ * 配置文件中根据一般有一个 http{} 块, 多个server{}块和多个locatoin{}块,首先会遍历所有
+ * http 模块,为有需要的模块建立main_conf,以后每解析到一个 server{}块都会遍历一次所有 http
+ * 模块让有需要的模块给这个 server{}块建立一个 srv_conf,同理遇到 location{}块也会遍历所有
+ * http 模块然后让需要的模块为这个 location{}块建立loc_conf.
+ * 如http_core_main_conf 中 server 字段保存所有 http_core_serv_conf(配置中的主机) 
+ * 指针,也就连接了所有 server{}块.(所有非 core http的 http 模块产生的 srv_conf 和 
+ * loc_conf 实际上都是由 http_core_module "挂载"连接起来的)
+ */
 static char *
 ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -168,6 +177,11 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      * the http null srv_conf context, it is used to merge
      * the server{}s' srv_conf's
      */
+    
+    /*
+     * 每个http module都有 main_conf,srv_conf 和 loc_conf 的指针空间,并分配利具体的
+     * conf 内存.
+     */
 
     /* 为所有http模块创建 srv_conf 指针数组,用于保存合并的 serv  */
     ctx->srv_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
@@ -201,7 +215,8 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         module = ngx_modules[m]->ctx;
         mi = ngx_modules[m]->ctx_index;
 
-        /* 依次建立http模块的 main_conf,填充 main_conf指针数组 */
+        /* 依次建立http模块的 main_conf,填充 main_conf指针数组,main_conf
+         * 的 server 字段保存了所有 server{}块的srv_conf指针 */
         if (module->create_main_conf) {
             ctx->main_conf[mi] = module->create_main_conf(cf);
             if (ctx->main_conf[mi] == NULL) {
@@ -229,6 +244,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     pcf = *cf; /* 保存cf 用于后期回复恢复 */
     cf->ctx = ctx; /* 将创建的 ctx 传给 conf */
 
+    /* 调用各 http 模块预配置 */
     for (m = 0; ngx_modules[m]; m++) {
         if (ngx_modules[m]->type != NGX_HTTP_MODULE) {
             continue;
@@ -249,7 +265,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     /* 设置配置模块类型和命令类型 */
     cf->module_type = NGX_HTTP_MODULE;
     cf->cmd_type = NGX_HTTP_MAIN_CONF;
-    /* 解析conf */
+    /* 解析conf,此时 cf->ctx 为 http_conf_ctx */
     rv = ngx_conf_parse(cf, NULL);
 
     if (rv != NGX_CONF_OK) {
@@ -279,7 +295,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         /* init http{} main_conf's */
 
-        /* 初始化 main_conf  */
+        /* 初始化各个 http 模块的 main_conf  */
         if (module->init_main_conf) {
             rv = module->init_main_conf(cf, ctx->main_conf[mi]);
             if (rv != NGX_CONF_OK) {
@@ -287,7 +303,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
         }
 
-        /* 合并 http{} 块中的 serv{}块 */
+        /* 合并各 http 模块的 http{} 块中的 serv{}块 */
         rv = ngx_http_merge_servers(cf, cmcf, module, mi);
         if (rv != NGX_CONF_OK) {
             goto failed;
@@ -297,11 +313,12 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     /* create location trees */
 
-    /* 遍历所有 serv{}块中的每个 loc{} 块 */
+    /* 遍历 http_core_module 的 serv{}块中的每个 loc{} 块 */
     for (s = 0; s < cmcf->servers.nelts; s++) {
 
         clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
 
+        /* 初始化 location块  */
         if (ngx_http_init_locations(cf, cscfp[s], clcf) != NGX_OK) {
             return NGX_CONF_ERROR;
         }
@@ -582,6 +599,8 @@ ngx_http_init_phase_handlers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
 }
 
 
+/* 合并顺序依次由外层向内层合并,http{}块中的向server{}块中合并,server{}块中的向
+ * location{}块合并 */
 static char *
 ngx_http_merge_servers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf,
     ngx_http_module_t *module, ngx_uint_t ctx_index)
@@ -593,16 +612,22 @@ ngx_http_merge_servers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf,
     ngx_http_core_srv_conf_t   **cscfp;
 
     cscfp = cmcf->servers.elts;
+    /* 此时 ctx为http{}块下全局配置 */
     ctx = (ngx_http_conf_ctx_t *) cf->ctx;
+    /* 保存一份 conf_ctx */
     saved = *ctx;
     rv = NGX_CONF_OK;
 
+    /* 遍历 core_srv_conf(遍历主机) */
     for (s = 0; s < cmcf->servers.nelts; s++) {
 
         /* merge the server{}s' srv_conf's */
 
+        /* 修改 ctx的 srv_conf 指向当前主机配置 */
         ctx->srv_conf = cscfp[s]->ctx->srv_conf;
 
+        /* 如果当前主机对应的模块配置中实现了 merge_srv 方法则调用,把当前主机中的 srv_conf 与 http{}
+         * 块中全局srv_conf 合并 */
         if (module->merge_srv_conf) {
             rv = module->merge_srv_conf(cf, saved.srv_conf[ctx_index],
                                         cscfp[s]->ctx->srv_conf[ctx_index]);
@@ -611,12 +636,16 @@ ngx_http_merge_servers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf,
             }
         }
 
+        /* 如果当前主机对应的模块中实现了merge_loc 方法 */
         if (module->merge_loc_conf) {
 
             /* merge the server{}'s loc_conf */
 
+            /* 修改 ctx 的 loc_conf 指针为当前主机中的 loc_conf,即所有主机中各模块
+             * 创建的 loc_conf */
             ctx->loc_conf = cscfp[s]->ctx->loc_conf;
 
+            /* 然后将主机中各模块创建的 loc_conf 与 http{}全局 loc_conf 合并 */
             rv = module->merge_loc_conf(cf, saved.loc_conf[ctx_index],
                                         cscfp[s]->ctx->loc_conf[ctx_index]);
             if (rv != NGX_CONF_OK) {
@@ -625,8 +654,10 @@ ngx_http_merge_servers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf,
 
             /* merge the locations{}' loc_conf's */
 
+            /* 如果当前主机中对应的模块中有 location{}块 */
             clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
 
+            /* 则将主机对应模块创建的 loc_conf 与该 location{}块的 loc_conf 合并 */
             rv = ngx_http_merge_locations(cf, clcf->locations,
                                           cscfp[s]->ctx->loc_conf,
                                           module, ctx_index);
@@ -654,6 +685,7 @@ ngx_http_merge_locations(ngx_conf_t *cf, ngx_queue_t *locations,
     ngx_http_core_loc_conf_t   *clcf;
     ngx_http_location_queue_t  *lq;
 
+    /* 当前主机下没有 location 块则返回 */
     if (locations == NULL) {
         return NGX_CONF_OK;
     }
@@ -661,12 +693,14 @@ ngx_http_merge_locations(ngx_conf_t *cf, ngx_queue_t *locations,
     ctx = (ngx_http_conf_ctx_t *) cf->ctx;
     saved = *ctx;
 
+    /* 遍历所有 location  */
     for (q = ngx_queue_head(locations);
          q != ngx_queue_sentinel(locations);
          q = ngx_queue_next(q))
     {
         lq = (ngx_http_location_queue_t *) q;
 
+        /* 根据是精确匹配还是正则匹配,合并不同的配置 */
         clcf = lq->exact ? lq->exact : lq->inclusive;
         ctx->loc_conf = clcf->loc_conf;
 
@@ -676,6 +710,7 @@ ngx_http_merge_locations(ngx_conf_t *cf, ngx_queue_t *locations,
             return rv;
         }
 
+        /* 如果有嵌套 locaton 块,则解析嵌套部分 */
         rv = ngx_http_merge_locations(cf, clcf->locations, clcf->loc_conf,
                                       module, ctx_index);
         if (rv != NGX_CONF_OK) {
@@ -718,6 +753,7 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
     r = 0;
 #endif
 
+    /* 如果 loation 块中还有 location 块,依次初始化 */
     for (q = ngx_queue_head(locations);
          q != ngx_queue_sentinel(locations);
          q = ngx_queue_next(q))
