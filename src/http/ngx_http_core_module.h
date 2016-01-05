@@ -178,7 +178,7 @@ typedef struct {
 
     ngx_hash_keys_arrays_t    *variables_keys;
 
-    ngx_array_t               *ports;
+    ngx_array_t               *ports;           /* 保存各主机监听端口 */
 
     ngx_uint_t                 try_files;       /* unsigned  try_files:1 */
 
@@ -277,16 +277,20 @@ typedef struct {
 
 typedef struct {
     ngx_int_t                  family;
-    in_port_t                  port;
+    in_port_t                  port;      /* 监听端口 */
     ngx_array_t                addrs;     /* array of ngx_http_conf_addr_t */
+                               /* 同一主机可能监听多个域名,就有多个地址 */
 } ngx_http_conf_port_t;
 
 
 typedef struct {
     ngx_http_listen_opt_t      opt;
 
+    /* 完全匹配主机名 hash  */
     ngx_hash_t                 hash;
+    /* 前置通配符匹配主机名 hash */
     ngx_hash_wildcard_t       *wc_head;
+    /* 后置通配符匹配主机名 hash */
     ngx_hash_wildcard_t       *wc_tail;
 
 #if (NGX_PCRE)
@@ -295,7 +299,9 @@ typedef struct {
 #endif
 
     /* the default server configuration for this address:port */
+    /* 对应 ngx_http_conf_port_t 中默认主机 */
     ngx_http_core_srv_conf_t  *default_server;
+    /* 主机列表 */
     ngx_array_t                servers;  /* array of ngx_http_core_srv_conf_t */
 } ngx_http_conf_addr_t;
 
@@ -462,8 +468,8 @@ struct ngx_http_core_loc_conf_s {
 
 typedef struct {
     ngx_queue_t                      queue;
-    ngx_http_core_loc_conf_t        *exact;
-    ngx_http_core_loc_conf_t        *inclusive;
+    ngx_http_core_loc_conf_t        *exact;  /* 精确匹配对应的配置 */
+    ngx_http_core_loc_conf_t        *inclusive; /* 正则匹配对应的配置 */
     ngx_str_t                       *name;
     u_char                          *file_name;
     ngx_uint_t                       line;
