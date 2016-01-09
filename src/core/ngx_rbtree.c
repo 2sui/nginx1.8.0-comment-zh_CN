@@ -359,25 +359,34 @@ ngx_rbtree_left_rotate(ngx_rbtree_node_t **root, ngx_rbtree_node_t *sentinel,
     node->parent = temp;
 }
 
-
+/*
+ * 右旋:目标节点变为其左子树的右节点,其左节点指向原左子树的右节点.
+ */
 static ngx_inline void
 ngx_rbtree_right_rotate(ngx_rbtree_node_t **root, ngx_rbtree_node_t *sentinel,
     ngx_rbtree_node_t *node)
 {
     ngx_rbtree_node_t  *temp;
 
+    /* 保存左子树 */
     temp = node->left;
+    /* 将目标节点的左子树指针指向左子树的右节点. */
     node->left = temp->right;
 
+    /* 如果左子树的有节点不为空,则将左子树的有节点的父指针指向目标节点 */
     if (temp->right != sentinel) {
         temp->right->parent = node;
     }
 
+    /* 将左子树的父指针指向目标节点的父节点 */
     temp->parent = node->parent;
 
+    /*如果目标节点为根节点(无父节点),则直接将根节点改为左子树 */
     if (node == *root) {
         *root = temp;
 
+        /* 如果目标节点为父节点的右子树,则父节点的右子树指针指向目标节点的原左子树,
+         * 如果目标节点为父节点的左子树,则父节点的左子树指针指向目标节点的原左子树 */
     } else if (node == node->parent->right) {
         node->parent->right = temp;
 
@@ -385,6 +394,7 @@ ngx_rbtree_right_rotate(ngx_rbtree_node_t **root, ngx_rbtree_node_t *sentinel,
         node->parent->left = temp;
     }
 
+    /* 左子树的右节点指针指向目标节点,并修改目标节点的父指针 */
     temp->right = node;
     node->parent = temp;
 }
