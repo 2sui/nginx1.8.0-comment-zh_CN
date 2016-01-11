@@ -31,6 +31,7 @@ ngx_rbtree_insert(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
     root = (ngx_rbtree_node_t **) &tree->root;
     sentinel = tree->sentinel;
 
+    /* 如果树为空,将新节点作为 root 节点,并修改颜色为 black(红黑树根节点为黑节点) */
     if (*root == sentinel) {
         node->parent = NULL;
         node->left = sentinel;
@@ -41,10 +42,11 @@ ngx_rbtree_insert(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
         return;
     }
 
+    /* 否则调用二叉树插入方法进行插入 */
     tree->insert(*root, node, sentinel);
 
     /* re-balance tree */
-
+    /* 插入修复,只有当新节点不为根且为红节点时需要被修复 */
     while (node != *root && ngx_rbt_is_red(node->parent)) {
 
         if (node->parent == node->parent->parent->left) {
