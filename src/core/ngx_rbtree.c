@@ -162,7 +162,7 @@ ngx_rbtree_delete(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
     ngx_rbtree_node_t  **root, *sentinel, *subst, *temp, *w;
 
     /* a binary tree delete */
-
+    /* 二叉树删除 */
     root = (ngx_rbtree_node_t **) &tree->root;
     sentinel = tree->sentinel;
 
@@ -255,12 +255,16 @@ ngx_rbtree_delete(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
     }
 
     /* a delete fixup */
-
+    /* 删除修复 */
     while (temp != *root && ngx_rbt_is_black(temp)) {
 
+        /* 如果当前是左子树 */
         if (temp == temp->parent->left) {
+            /* 找到兄弟节点 */
             w = temp->parent->right;
 
+            /* 如果兄弟节点是红节点,把它变成黑节点,父节点变成红节点,然后对父节点左旋,
+             * 此时父节点的兄弟和父节点改变,temp 的兄弟也改变,找到 temp 节点的新兄弟 */
             if (ngx_rbt_is_red(w)) {
                 ngx_rbt_black(w);
                 ngx_rbt_red(temp->parent);
@@ -268,11 +272,14 @@ ngx_rbtree_delete(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
                 w = temp->parent->right;
             }
 
+            /* 如果兄弟节点的两个子节点都是黑节点,将兄弟节点改为红节点,把 temp 节点变为父节点 */
             if (ngx_rbt_is_black(w->left) && ngx_rbt_is_black(w->right)) {
                 ngx_rbt_red(w);
                 temp = temp->parent;
 
             } else {
+                /* 如果兄弟节点右孩子是黑节点,把兄弟节点左孩子变为黑节点,兄弟节点变为红节点,
+                 * 然后将兄弟节点右旋,此时 temp 的兄弟节点改变,重新找到兄弟节点 */
                 if (ngx_rbt_is_black(w->right)) {
                     ngx_rbt_black(w->left);
                     ngx_rbt_red(w);
@@ -280,6 +287,9 @@ ngx_rbtree_delete(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
                     w = temp->parent->right;
                 }
 
+                /* 此时兄弟节点右孩子为红节点,把兄弟节点颜色设为父节点颜色, 把父节点变为黑节点,
+                 * 把兄弟节点的右孩子变为红节点,然后对父节点左旋
+                 */
                 ngx_rbt_copy_color(w, temp->parent);
                 ngx_rbt_black(temp->parent);
                 ngx_rbt_black(w->right);
@@ -288,6 +298,7 @@ ngx_rbtree_delete(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
             }
 
         } else {
+        /* 如果当前是右子树 */
             w = temp->parent->left;
 
             if (ngx_rbt_is_red(w)) {
