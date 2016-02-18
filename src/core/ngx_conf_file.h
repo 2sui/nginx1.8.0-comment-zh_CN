@@ -125,9 +125,7 @@ struct ngx_open_file_s {
  */
 struct ngx_module_s {
     /*
-     * 对于一类模块（由下面的type成员决定类别）而言，ctx_index表示当前模块在这类模块中的索引号。
-     * 这个成员常常是由管理这类模块的一个nginx核心模块设置的，对于所有的HTTP模块而言，ctx_index
-     * 是由核心模块ngx_http_module设置的。该字段在各类模块的ngx_xxx_block()函数中初始化。
+     * 当前模块在ngx_modules数组中的索引。
      */
     ngx_uint_t            ctx_index;
 
@@ -149,27 +147,35 @@ struct ngx_module_s {
      */
     void                 *ctx;
 
-    /* 模块命令集，将处理nginx.conf中的配置项 */
+    /* 
+     * 模块命令集,表示该模块可用的命令集，将处理nginx.conf中的配置项.
+     * 在ngx_init_cycle中调用ngx_conf_parse解析配置时,对解析到的配置调用 commands 中的
+     * set 句柄对配置进行操作.
+     */
     ngx_command_t        *commands;
 
     /* 标示该模块(上下文结构体ctx)的类型，和ctx是紧密相关的。它的取值范围是以下几种:
-     * NGX_CORE_MODULE,
-     * NGX_CONF_MODULE,
-     * NGX_EVENT_MODULE,
-     * NGX_HTTP_MODULE,
-     * NGX_MAIL_MODULE
+     * NGX_CORE_MODULE, 各类模块的第一个模块(ngx_core_module,ngx_http_module,
+     *     ngx_events_module,ngx_mail_module等)
+     * NGX_CONF_MODULE, 配置管理模块(ngx_conf_module)
+     * NGX_EVENT_MODULE, 所有 event 模块下除ngx_events_module的其它模块
+     * NGX_HTTP_MODULE,  所有 http 模块下除ngx_http_module的其它模块
+     * NGX_MAIL_MODULE  所有 mail 模块下除ngx_mail_module的其它模块
      */
     ngx_uint_t            type;
 
     /* nginx运行流程中对应的各过程 */
-    ngx_int_t           (*init_master)(ngx_log_t *log); /* 初始化master */
-
-    ngx_int_t           (*init_module)(ngx_cycle_t *cycle); /* 初始化模块, 在 ngx_init_cycle 中调用 */
+    /* 初始化master */
+    ngx_int_t           (*init_master)(ngx_log_t *log);
+    /* 初始化模块, 在 ngx_init_cycle 中调用 */
+    ngx_int_t           (*init_module)(ngx_cycle_t *cycle); 
 
     /*
      * 初始化模块进程相关, 如调用 event_core 模块进行对应的初始化，事件队列，锁，
-     * 各事件模块 ctx中 actions 的init 方法调用(并将对应的actions赋值给 ngx_event_actions)，cycle 中的 connections等初始化,
-     * 在各子进程中 ngx_worker_process_init 中调用 */
+     * 各事件模块 ctx中 actions 的init 方法调用(并将对应的actions赋值给 
+     * ngx_event_actions)，cycle 中的 connections等初始化, 在各子进程中 
+     * ngx_worker_process_init 中调用 
+     */
     ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
     ngx_int_t           (*init_thread)(ngx_cycle_t *cycle); /* 初始化线程 */
     void                (*exit_thread)(ngx_cycle_t *cycle); /* 退出线程 */

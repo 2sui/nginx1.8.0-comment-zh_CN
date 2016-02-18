@@ -347,7 +347,8 @@ main(int argc, char *const *argv)
      * 在init_cycle中保存:
      *      1.ngx_prefix(init_cycle.conf_prefix,init_cycle.prefix)，如果ngx_prefix
      *        为空，则为当前路径或NGX_PREFIX、NGX_CONF_PREFIX指定的路径（保存nginx主路径）
-     *      2.ngx_conf_file(init_cycle.conf_file),如果ngx_conf_file未定义则使用NGX_CONF_PATH（nginx配置文件路径）
+     *      2.ngx_conf_file(init_cycle.conf_file),如果ngx_conf_file未定义则使用
+     *        NGX_CONF_PATH（nginx配置文件路径）
      *      3.ngx_conf_params(init_cycle.conf_param)（配置参数）
      *      4.ngx_test_config,设置日志等级（NGX_LOG_INFO）
     */
@@ -368,7 +369,10 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    /* 继承socket，继承来的socket房子init_cycle.listening数组中（用于平滑升级，通过换进变量传递旧的监听套接字给新程序）*/
+    /* 
+     * 继承socket，继承来的socket放在init_cycle.listening数组中（用于平滑升级，
+     * 通过环境变量传递旧的监听套接字给新程序）
+     */
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -380,9 +384,10 @@ main(int argc, char *const *argv)
     }
 
     /*
-     * 初始化ngx_cycle_t并继承旧的ngx_cycle_t，解析配置文件，加载模块，打开所有需要监听的端口，初始化进程间通信方式，
-     * 调用所有 core module 的 create_conf 和 init_conf 方法，调用各模块的init_module回调。（关键部分）
-    */
+     * 初始化ngx_cycle_t并继承旧的ngx_cycle_t，解析配置文件，加载模块，
+     * 打开所有需要监听的端口，初始化进程间通信方式，调用所有 core module 的 create_conf 
+     * 和 init_conf 方法，调用各模块的init_module回调。（关键部分）
+     */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
         if (ngx_test_config) {
@@ -427,6 +432,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    /* 设置后台运行 */
     if (!ngx_inherited && ccf->daemon) {
         if (ngx_daemon(cycle->log) != NGX_OK) {
             return 1;

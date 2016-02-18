@@ -524,6 +524,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
 
     /* cl should be equal to or greater than cache line size */
+    /* 缓存行大小, cpu cacheline, 优化内存命中 */
 
     cl = 128;
 

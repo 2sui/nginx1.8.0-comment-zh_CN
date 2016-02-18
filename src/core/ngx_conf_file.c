@@ -424,7 +424,8 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                 }
             }
 
-            /* 调用模块对应命令中的 set 函数，如 ngx_http_commands 中 set 指向 ngx_http_block */
+            /* 调用模块对应命令中的 set 函数，如 ngx_http_commands 中 set 
+             * 指向 ngx_http_block */
             rv = cmd->set(cf, cmd, conf);
 
             if (rv == NGX_CONF_OK) {

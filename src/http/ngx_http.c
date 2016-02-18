@@ -252,7 +252,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         module = ngx_modules[m]->ctx;
 
-        /* 调用 preconfiguration 预处理配置 */
+        /* 调用 preconfiguration 预处理配置,这里进行 http 处理流程句柄数据的建立 */
         if (module->preconfiguration) {
             if (module->preconfiguration(cf) != NGX_OK) {
                 return NGX_CONF_ERROR;
@@ -318,7 +318,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
 
-        /* 初始化 location块  */
+        /* 初始化 location块,构造 location 静态二叉查找树  */
         if (ngx_http_init_locations(cf, cscfp[s], clcf) != NGX_OK) {
             return NGX_CONF_ERROR;
         }
@@ -329,16 +329,18 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
 
+    /* 处理7个可由用户添加处理模块的HTTP 阶段 */
     if (ngx_http_init_phases(cf, cmcf) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
 
+    /* 初始化 header 哈希表 */
     if (ngx_http_init_headers_in_hash(cf, cmcf) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
 
 
-    /* post config */
+    /* 调用所有模块的 postconfiguration 添加处理模块的句柄 */
     for (m = 0; ngx_modules[m]; m++) {
         if (ngx_modules[m]->type != NGX_HTTP_MODULE) {
             continue;
@@ -364,14 +366,14 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     *cf = pcf; /* 恢复conf */
 
-
+    /* 初始化 http 的11歌处理阶段的 checker */
     if (ngx_http_init_phase_handlers(cf, cmcf) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
 
 
     /* optimize the lists of ports, addresses and server names */
-
+    /* 配置虚拟主机表 */
     if (ngx_http_optimize_servers(cf, cmcf, cmcf->ports) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
@@ -385,7 +387,9 @@ failed:
     return rv;
 }
 
-
+/*
+ * 初始化7个可添加模块的HTTP 阶段的处理句柄
+ */
 static ngx_int_t
 ngx_http_init_phases(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
 {
@@ -482,7 +486,9 @@ ngx_http_init_headers_in_hash(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
     return NGX_OK;
 }
 
-
+/*
+ * 初始化 http模块11个处理阶段的 checker 和 handler.
+ */
 static ngx_int_t
 ngx_http_init_phase_handlers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
 {
@@ -511,6 +517,7 @@ ngx_http_init_phase_handlers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
         return NGX_ERROR;
     }
 
+    /* 分配parse_engine 的各阶段的处理方法数组 */
     cmcf->phase_engine.handlers = ph;
     n = 0;
 
