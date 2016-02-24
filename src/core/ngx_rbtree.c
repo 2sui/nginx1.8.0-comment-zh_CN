@@ -212,10 +212,12 @@ ngx_rbtree_delete(ngx_rbtree_t *tree, ngx_rbtree_node_t *node)
 
     } else {
 
+        /* temp is nil */
         if (subst->parent == node) {
             temp->parent = subst;
 
         } else {
+            /* temp is not nil */
             temp->parent = subst->parent;
         }
 
