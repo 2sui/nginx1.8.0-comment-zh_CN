@@ -10,3 +10,6 @@ Nginx源码注释(版本1.8.0)<br/>
 <http://simohayha.iteye.com/blog/467940><br/>
 <br/>
 Documentation is available at <http://nginx.org>
+
+----
+###### created by 2sui
